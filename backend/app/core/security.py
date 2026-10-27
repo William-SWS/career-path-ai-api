@@ -6,16 +6,35 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
+from enum import Enum
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+class TokenType(str, Enum):
+    """Claim `type`: impede que um tipo de token seja aceito no lugar de outro."""
+
+    ACCESS = "access"
+    REFRESH = "refresh"
+    RESET_PASSWORD = "reset_password"
+
+
+_DEFAULT_DURATIONS = {
+    TokenType.ACCESS: lambda: timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    TokenType.REFRESH: lambda: timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+}
+
+
 def create_token(
-    user_id, token_duration=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-):
-    expire_date = datetime.now(timezone.utc) + token_duration
+    user_id: int,
+    token_type: TokenType = TokenType.ACCESS,
+    token_duration: timedelta | None = None,
+) -> str:
+    """Emite um access ou refresh token; o de reset de senha tem criador próprio."""
+    token_duration = token_duration or _DEFAULT_DURATIONS[token_type]()
     dict_info = {
-        "sub": str(user_id), 
-        "exp": expire_date
+        "sub": str(user_id),
+        "type": token_type.value,
+        "exp": datetime.now(timezone.utc) + token_duration,
     }
     encoded_jwt = jwt.encode(dict_info, settings.SECRET_KEY, settings.ALGORITHM)
     return encoded_jwt

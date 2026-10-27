@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 from jose import jwt, JWTError
 from app.core.config import settings
+from app.core.security import TokenType
 from typing import Optional
 
 
@@ -17,9 +18,14 @@ def cleanup_expired_tokens(db: Session) -> int:
     return deleted_count
 
 
-def decode_jwt_token(token: str) -> dict:
-    """Levanta JWTError se o token for inválido ou estiver expirado."""
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+def decode_jwt_token(token: str, expected_type: TokenType) -> dict:
+    """Levanta JWTError se o token for inválido, estiver expirado ou for de outro tipo."""
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+
+    if payload.get("type") != expected_type.value:
+        raise JWTError(f"Esperado token do tipo {expected_type.value}")
+
+    return payload
 
 
 def create_reset_password_token(email: str) -> str:
@@ -31,7 +37,7 @@ def create_reset_password_token(email: str) -> str:
     to_encode = {
         "sub": email,
         "exp": expire,
-        "type": "reset_password"
+        "type": TokenType.RESET_PASSWORD.value
     }
 
     encoded_jwt = jwt.encode(
@@ -48,18 +54,6 @@ def verify_reset_password_token(token: str) -> Optional[str]:
     Retorna o email se o token for válido, None caso contrário
     """
     try:
-        payload = jwt.decode(
-            token, 
-            settings.SECRET_KEY, 
-            algorithms=[settings.ALGORITHM]
-        )
-        
-        email: str = payload.get("sub")
-        token_type: str = payload.get("type")
-        
-        if email is None or token_type != "reset_password":
-            return None
-            
-        return email
+        return decode_jwt_token(token, TokenType.RESET_PASSWORD).get("sub")
     except JWTError:
         return None

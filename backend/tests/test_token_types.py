@@ -1,0 +1,104 @@
+"""Access, refresh e reset são tokens distintos: um nunca vale no lugar do outro."""
+from datetime import datetime, timedelta, timezone
+
+import pytest
+from jose import JWTError, jwt
+
+from app.core.config import settings
+from app.core.security import TokenType, create_token
+from app.utils.token_utils import create_reset_password_token, decode_jwt_token
+
+API = "/api/v1"
+
+
+def sign(claims: dict) -> str:
+    return jwt.encode(claims, settings.SECRET_KEY, settings.ALGORITHM)
+
+
+def expired_token(token_type: TokenType) -> str:
+    return create_token(1, token_type, token_duration=timedelta(seconds=-5))
+
+
+def test_tokens_carry_their_type():
+    claims = lambda t: jwt.get_unverified_claims(t)
+
+    assert claims(create_token(1))["type"] == "access"
+    assert claims(create_token(1, TokenType.REFRESH))["type"] == "refresh"
+    assert claims(create_reset_password_token("a@b.co"))["type"] == "reset_password"
+
+
+def test_refresh_token_outlives_access_token():
+    exp = lambda t: jwt.get_unverified_claims(t)["exp"]
+
+    assert exp(create_token(1, TokenType.REFRESH)) > exp(create_token(1))
+
+
+@pytest.mark.parametrize(
+    "token, expected",
+    [
+        (create_token(1, TokenType.REFRESH), TokenType.ACCESS),
+        (create_token(1), TokenType.REFRESH),
+        (create_reset_password_token("a@b.co"), TokenType.ACCESS),
+        (create_token(1), TokenType.RESET_PASSWORD),
+    ],
+    ids=["refresh-as-access", "access-as-refresh", "reset-as-access", "access-as-reset"],
+)
+def test_decode_rejects_a_token_of_another_type(token, expected):
+    with pytest.raises(JWTError):
+        decode_jwt_token(token, expected)
+
+
+def test_decode_rejects_legacy_token_without_type():
+    legacy = sign({"sub": "1", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)})
+
+    with pytest.raises(JWTError):
+        decode_jwt_token(legacy, TokenType.ACCESS)
+
+
+def test_decode_rejects_expired_token():
+    with pytest.raises(JWTError):
+        decode_jwt_token(expired_token(TokenType.ACCESS), TokenType.ACCESS)
+
+
+def bearer(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        create_token(1, TokenType.REFRESH),
+        create_reset_password_token("a@b.co"),
+        sign({"sub": "1", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}),
+        sign({"sub": "not-a-number", "type": "access", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}),
+        sign({"type": "access", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}),
+        expired_token(TokenType.ACCESS),
+        "garbage",
+    ],
+    ids=["refresh", "reset", "legacy-no-type", "non-numeric-sub", "no-sub", "expired", "garbage"],
+)
+def test_protected_route_rejects_anything_but_a_valid_access_token(client, token):
+    response = client.get(f"{API}/users/me", headers=bearer(token))
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        create_token(1),
+        expired_token(TokenType.REFRESH),
+        create_reset_password_token("a@b.co"),
+        "garbage",
+    ],
+    ids=["access", "expired-refresh", "reset", "garbage"],
+)
+def test_refresh_endpoint_rejects_anything_but_a_valid_refresh_token(client, token):
+    response = client.post(f"{API}/auth/refresh", headers=bearer(token))
+
+    assert response.status_code == 401
+
+
+def test_refresh_endpoint_requires_a_token(client):
+    assert client.post(f"{API}/auth/refresh").status_code == 401

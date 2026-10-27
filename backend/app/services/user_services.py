@@ -7,7 +7,12 @@ from app.core.exceptions import (
     ValidationException,
 )
 from app.models.user import User
-from app.core.security import bcrypt_context, create_token, add_token_to_blacklist
+from app.core.security import (
+    TokenType,
+    add_token_to_blacklist,
+    bcrypt_context,
+    create_token,
+)
 from app.core.email import send_password_reset_email
 from app.utils.token_utils import verify_reset_password_token
 from app.schemas.user_schema import (
@@ -27,7 +32,6 @@ from app.schemas.auth_schema import (
     LoginResponse,
     UserResponse,
 )
-from datetime import timedelta
 from app.repository.user_repository import UserRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,7 +70,7 @@ class UserService:
         user = await self.authenticate_user(login_schema.email, login_schema.password)
 
         access_token = create_token(user.id)
-        refresh_token = create_token(user.id, token_duration=timedelta(days=7))
+        refresh_token = create_token(user.id, TokenType.REFRESH)
 
         return LoginResponse(
             data=UserResponse(
