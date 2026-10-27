@@ -8,13 +8,12 @@ from typing import Optional
 
 def cleanup_expired_tokens(db: Session) -> int:
     """
-    Remove tokens expirados da blacklist
+    Remove tokens expirados da blacklist. Quem chama é responsável pelo commit.
     """
     now = datetime.now(timezone.utc)
     deleted_count = db.query(TokenBlacklist).filter(
         TokenBlacklist.expires_at < now
     ).delete()
-    db.commit()
     return deleted_count
 
 

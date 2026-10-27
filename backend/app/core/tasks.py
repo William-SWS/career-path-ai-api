@@ -13,6 +13,7 @@ def scheduled_cleanup_job():
     db = next(get_db_sync())
     try:
         cleanup_expired_tokens(db)
+        db.commit()
     except Exception as e:
         logger.error(f"Erro ao limpar tokens expirados: {e}")
         db.rollback()

@@ -20,6 +20,22 @@ _TEST_ENV = {
 for key, value in _TEST_ENV.items():
     os.environ.setdefault(key, value)
 
+# Testes de integração (tests/integration) usam um Postgres real indicado por
+# TEST_DATABASE_URL, ex.: postgresql://postgres:test@127.0.0.1:55432/test.
+# Sem ela, esses testes são pulados e a suíte continua independente de serviços externos.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+if TEST_DATABASE_URL:
+    from sqlalchemy.engine import make_url
+
+    _url = make_url(TEST_DATABASE_URL)
+    os.environ.update(
+        POSTGRES_HOST=_url.host,
+        POSTGRES_PORT=str(_url.port),
+        POSTGRES_USER=_url.username,
+        POSTGRES_PASSWORD=_url.password,
+        POSTGRES_DB=_url.database,
+    )
+
 import pytest
 from fastapi.testclient import TestClient
 

@@ -23,45 +23,29 @@ class BaseRepository(Generic[ModelType]):
         )
         return result.scalars().all()
     
+    # Os métodos de escrita só fazem flush: o commit (e o rollback) pertencem ao
+    # caso de uso, que sabe quando a operação como um todo terminou.
     async def create(self, **kwargs) -> ModelType:
-        try:
-            instance = self.model(**kwargs)
-            self.session.add(instance)
-            await self.session.flush()
-            await self.session.commit()
-            await self.session.refresh(instance)
-            return instance
-        except Exception:
-            await self.session.rollback()
-            raise
+        instance = self.model(**kwargs)
+        self.session.add(instance)
+        await self.session.flush()
+        await self.session.refresh(instance)
+        return instance
 
     async def update(self, id: int, **kwargs) -> Optional[ModelType]:
-        try:
-            obj = await self.get_by_id(id)
-            if not obj:
-                return None
-            
-            for key, value in kwargs.items():
-                setattr(obj, key, value)
+        obj = await self.get_by_id(id)
+        if not obj:
+            return None
 
-            self.session.add(obj)
-            await self.session.flush()
-            await self.session.commit()
-            
-            await self.session.refresh(obj)
-            return obj
-            
-        except Exception:
-            await self.session.rollback()
-            raise
-    
+        for key, value in kwargs.items():
+            setattr(obj, key, value)
+
+        await self.session.flush()
+        await self.session.refresh(obj)
+        return obj
+
     async def delete(self, id: int) -> None:
-        try:
-            await self.session.execute(
-                delete(self.model).where(self.model.id == id)
-            )
-            await self.session.flush()
-            await self.session.commit()
-        except Exception:
-            await self.session.rollback()
-            raise
+        await self.session.execute(
+            delete(self.model).where(self.model.id == id)
+        )
+        await self.session.flush()

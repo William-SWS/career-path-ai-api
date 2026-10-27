@@ -30,3 +30,4 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["integration: precisa de um Postgres real (defina TEST_DATABASE_URL)"]

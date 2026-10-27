@@ -12,6 +12,7 @@ from app.schemas.development_trail_schema import (
     DevelopmentTrailRequest,
     DevelopmentTrailUpdateRequest,
 )
+from tests.fakes import FakeSession
 from app.services import (
     development_trail_services,
     interview_guide_services,
@@ -24,14 +25,6 @@ from app.services.resume_analysis_services import ResumeAnalysisService
 USER = SimpleNamespace(id=1)
 OTHER_USER_ID = 2
 NOW = datetime.now(timezone.utc)
-
-
-class FakeSession:
-    async def commit(self):
-        pass
-
-    async def refresh(self, obj):
-        pass
 
 
 class FakeRepository:
@@ -80,6 +73,10 @@ def make_service(cls, repository_attr, *records):
     return service, repository
 
 
+def commits(service) -> int:
+    return service.db.commits
+
+
 def stub_llm(monkeypatch, module, name, *, returns=None, raises=None):
     async def fake(*args, **kwargs):
         if raises:
@@ -96,8 +93,8 @@ def trail_record(id=1, user_id=USER.id):
     )
 
 
-def guide_record(id=1, user_id=USER.id):
-    return SimpleNamespace(id=id, user_id=user_id, interview_guide=None, created_at=NOW)
+def guide_record(id=1, user_id=USER.id, content={"preparation_overview": "x"}):
+    return SimpleNamespace(id=id, user_id=user_id, interview_guide=content, created_at=NOW)
 
 
 def analysis_record(id=1, user_id=USER.id):
@@ -253,6 +250,56 @@ def test_empty_trail_list_is_a_valid_empty_response():
 
 
 def test_interview_guide_without_content_is_returned_as_empty_object():
-    service, _ = make_service(InterviewGuideService, "interview_guide_repository", guide_record())
+    service, _ = make_service(InterviewGuideService, "interview_guide_repository", guide_record(content=None))
 
     assert run(service.get_interview_guide_by_id_service(1, USER)).interview_guide == {}
+
+
+# ---------- fronteira transacional: um commit por escrita, nenhum por leitura ou falha
+
+def test_generating_a_trail_commits_exactly_once(monkeypatch):
+    service, _ = make_service(DevelopmentTrailService, "development_trail_repository")
+    stub_llm(monkeypatch, development_trail_services, "generate_development_trail_with_gemini", returns={"a": 1})
+
+    run(service.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER))
+
+    assert commits(service) == 1
+
+
+def test_unusable_ai_result_commits_nothing(monkeypatch):
+    service, _ = make_service(DevelopmentTrailService, "development_trail_repository")
+    stub_llm(monkeypatch, development_trail_services, "generate_development_trail_with_gemini", returns={})
+
+    with pytest.raises(ExternalServiceException):
+        run(service.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER))
+
+    assert commits(service) == 0
+
+
+def test_writes_commit_once_and_reads_never_commit():
+    trail, _ = make_service(DevelopmentTrailService, "development_trail_repository", trail_record())
+    guide, _ = make_service(InterviewGuideService, "interview_guide_repository", guide_record())
+    analysis, _ = make_service(ResumeAnalysisService, "resume_analysis_repository", analysis_record())
+
+    run(trail.get_development_trail_service(USER, 0, 10))
+    run(trail.get_development_trail_by_id_service(1, USER))
+    run(guide.get_interview_guide_service(USER, 0, 10))
+    run(guide.get_interview_guide_by_id_service(1, USER))
+    run(analysis.get_resume_analysis_service(USER, 0, 10))
+    run(analysis.get_resume_analysis_by_id_service(1, USER))
+    assert [commits(s) for s in (trail, guide, analysis)] == [0, 0, 0]
+
+    run(trail.update_development_trail_status_service(1, DevelopmentTrailUpdateRequest(status="Completed"), USER))
+    run(trail.delete_development_trail_service(1, USER))
+    run(guide.delete_interview_guide_service(1, USER))
+    run(analysis.delete_resume_analysis_service(1, USER))
+    assert [commits(s) for s in (trail, guide, analysis)] == [2, 1, 1]
+
+
+def test_not_found_never_commits():
+    service, _ = make_service(DevelopmentTrailService, "development_trail_repository")
+
+    with pytest.raises(NotFoundException):
+        run(service.delete_development_trail_service(1, USER))
+
+    assert commits(service) == 0

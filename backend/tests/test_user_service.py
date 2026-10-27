@@ -21,7 +21,9 @@ from app.schemas.auth_schema import (
 )
 from app.schemas.user_schema import UserDeleteRequest, UserUpdateRequest
 from app.services.user_services import UserService
+from app.core.security import create_token
 from app.utils.token_utils import create_reset_password_token
+from tests.fakes import FakeSession
 
 PASSWORD = "Abcdef12"
 PASSWORD_HASH = bcrypt_context.hash(PASSWORD)  # bcrypt é lento: calcula uma vez
@@ -57,6 +59,11 @@ class FakeUserRepository:
     async def delete(self, user_id):
         self.deleted_ids.append(user_id)
 
+    async def update_password(self, user_id, hashed_password):
+        user = await self.get_by_id(user_id)
+        user.password_hash = hashed_password
+        return user
+
 
 def make_user(id=1, email="maria@example.com"):
     return SimpleNamespace(
@@ -69,8 +76,8 @@ def make_user(id=1, email="maria@example.com"):
     )
 
 
-def make_service(*users):
-    service = UserService(db=None)
+def make_service(*users, session=None):
+    service = UserService(db=session or FakeSession())
     service.user_repository = FakeUserRepository(users)
     return service
 
@@ -194,3 +201,64 @@ def test_reset_password_for_deleted_user_is_not_found():
 
     with pytest.raises(NotFoundException):
         run(service.reset_user_password(ResetPasswordRequest(reset_token=token, new_password="Newpass12")))
+
+
+# ---------- fronteira transacional: um commit por escrita, nenhum por leitura ou falha
+
+def test_successful_writes_commit_exactly_once():
+    me = make_user()
+    reset_token = create_reset_password_token(me.email)
+    calls = {
+        "register": lambda s: s.create_user_account(
+            RegisterRequest(name="Ana Souza", email="ana@example.com", password=PASSWORD)),
+        "update": lambda s: s.update_user(UserUpdateRequest(name="Maria Souza"), me),
+        "delete": lambda s: s.delete_user(UserDeleteRequest(password=PASSWORD), me),
+        "reset": lambda s: s.reset_user_password(
+            ResetPasswordRequest(reset_token=reset_token, new_password="Newpass12")),
+        "logout": lambda s: s.logout(create_token(me.id)),
+    }
+
+    for name, call in calls.items():
+        service = make_service(me)
+        run(call(service))
+        assert service.db.commits == 1, name
+
+
+def test_reads_and_failed_writes_never_commit():
+    me = make_user()
+    attempts = [
+        (ConflictException, lambda s: s.create_user_account(
+            RegisterRequest(name="Ana Souza", email=me.email, password=PASSWORD))),
+        (ValidationException, lambda s: s.update_user(UserUpdateRequest(), me)),
+        (PermissionDeniedException, lambda s: s.delete_user(UserDeleteRequest(password="WrongPass1"), me)),
+        (ValidationException, lambda s: s.reset_user_password(
+            ResetPasswordRequest(reset_token="bad", new_password="Newpass12"))),
+        (AuthenticationException, lambda s: s.login(LoginRequest(email=me.email, password="WrongPass1"))),
+    ]
+
+    for expected, call in attempts:
+        service = make_service(me)
+        with pytest.raises(expected):
+            run(call(service))
+        assert service.db.commits == 0
+
+    service = make_service(me)
+    run(service.login(LoginRequest(email=me.email, password=PASSWORD)))
+    run(service.retrieve_user_data(me))
+    assert service.db.commits == 0
+
+
+def test_logout_blacklists_the_token_it_received():
+    service = make_service(make_user())
+    token = create_token(1)
+
+    run(service.logout(token))
+
+    assert [entry.token for entry in service.db.added] == [token]
+
+
+def test_logout_does_not_report_success_when_the_blacklist_write_fails():
+    service = make_service(make_user(), session=FakeSession(commit_error=RuntimeError("db down")))
+
+    with pytest.raises(RuntimeError):
+        run(service.logout(create_token(1)))

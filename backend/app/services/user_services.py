@@ -50,6 +50,7 @@ class UserService:
             email=user_data.email,
             password_hash=crypted_password,
         )
+        await self.db.commit()
 
         return MessageResponse(message="Usuário criado com sucesso")
 
@@ -96,6 +97,7 @@ class UserService:
 
     async def logout(self, token: str) -> MessageResponse:
         await add_token_to_blacklist(token, self.db)
+        await self.db.commit()
 
         return MessageResponse(message="Logout realizado com sucesso")
 
@@ -116,6 +118,8 @@ class UserService:
         updated_user = await self.user_repository.update(
             current_user.id, **updated_data
         )
+        await self.db.commit()
+        await self.db.refresh(updated_user)
 
         return UserUpdateResponse(
             id=updated_user.id,
@@ -133,6 +137,7 @@ class UserService:
             raise PermissionDeniedException("Senha incorreta", code="invalid_password")
 
         await self.user_repository.delete(current_user.id)
+        await self.db.commit()
 
         return MessageResponse(message="Usuário deletado com sucesso")
 
@@ -174,5 +179,6 @@ class UserService:
         hashed_password = bcrypt_context.hash(request_data.new_password)
 
         await self.user_repository.update_password(user.id, hashed_password)
+        await self.db.commit()
 
         return MessageResponse(message="Senha resetada com sucesso")

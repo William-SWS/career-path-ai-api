@@ -1,7 +1,6 @@
 from app.core.config import settings
 from app.models.user import User
 from app.models.token_blacklist import TokenBlacklist
-from app.core.logging_config import logger
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +32,7 @@ async def is_token_blacklisted(token: str, db: AsyncSession) -> bool:
 
 async def add_token_to_blacklist(token: str, db: AsyncSession):
     """
-    Adiciona token à blacklist
+    Adiciona token à blacklist. Quem chama é responsável pelo commit.
     """
     try:
         # Tenta decodificar o token para pegar a expiração real
@@ -46,26 +45,5 @@ async def add_token_to_blacklist(token: str, db: AsyncSession):
         # Se o token é inválido ou expirado, usa expiração padrão
         expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
     
-    try:
-        blacklisted_token = TokenBlacklist(
-            token=token,
-            expires_at=expires_at
-        )
-        
-        db.add(blacklisted_token)
-        await db.commit()
-        
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Erro ao adicionar token à blacklist: {e}")
-
-
-async def authenticate_user(email: str, password: str, session: AsyncSession):
-    result = await session.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-    if not user:
-        return False
-    elif not bcrypt_context.verify(password, user.password_hash):
-        return False
-    
-    return user
+    db.add(TokenBlacklist(token=token, expires_at=expires_at))
+    await db.flush()
