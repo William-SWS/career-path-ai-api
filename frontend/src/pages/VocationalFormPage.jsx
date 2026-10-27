@@ -180,7 +180,7 @@ const VocationalFormPage = () => {
       // Mensagem de erro mais específica
       let errorMessage = 'Erro ao gerar trilha de estudos. Tente novamente.';
       
-      if (error.message && error.message.includes('429') || error.message.includes('quota') || error.message.includes('limite')) {
+      if (error.status === 429) {
         errorMessage = 'Limite de uso da API do Gemini excedido. Por favor, aguarde alguns minutos e tente novamente. O plano gratuito tem limites reduzidos.';
       } else if (error.message && error.message.includes('authentication')) {
         errorMessage = 'Erro de autenticação. Verifique a configuração da API.';

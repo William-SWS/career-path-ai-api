@@ -522,7 +522,9 @@ export async function createDevelopmentTrail(trailData) {
 
   if (!response.ok) {
     const errorMessage = await readErrorMessage(response, 'Erro ao criar trilha');
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    throw error;
   }
 
   return await response.json();

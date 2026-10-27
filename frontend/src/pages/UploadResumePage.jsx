@@ -96,7 +96,7 @@ const UploadResumePage = () => {
       
       if (err.message) {
         // Tenta extrair a mensagem de erro do backend
-        if (err.message.includes('429') || err.message.includes('quota') || err.message.includes('limite')) {
+        if (err.status === 429) {
           errorMessage = 'Limite de uso da API do Gemini excedido. Por favor, aguarde alguns minutos e tente novamente.';
         } else if (err.message.includes('API key') || err.message.includes('autenticação') || err.message.includes('expired')) {
           errorMessage = 'Erro de autenticação com a API. A chave de API pode ter expirado. Entre em contato com o suporte.';
