@@ -1,10 +1,12 @@
-from app.core.config import settings
-from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
-import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
+from app.llm.client import GenerationParams
 import json
 import re
+
+
+RESUME_ANALYSIS_PARAMS = GenerationParams(
+    temperature=0.2, top_p=0.8, top_k=40, max_output_tokens=10000
+)
 
 
 def extract_analysis_json_from_text(text: str) -> dict:
@@ -104,16 +106,8 @@ def repair_truncated_json(json_str: str, error: json.JSONDecodeError = None) -> 
     return repaired
 
 
-async def analyze_with_gemini(resume_text: str) -> dict:
-    """Analisa o currículo usando Google Gemini"""
-
-    if not settings.GEMINI_API_KEY:
-        raise ExternalServiceException(
-            "Serviço de IA indisponível no momento", code="ai_unavailable"
-        )
-
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-
+def build_resume_analysis_prompt(resume_text: str) -> str:
+    """Monta o prompt de análise de currículo (texto truncado)"""
     truncated_text = resume_text[:6000]
 
     prompt = """
@@ -151,44 +145,4 @@ async def analyze_with_gemini(resume_text: str) -> dict:
     BASEIE-SE APENAS NAS INFORMAÇÕES DO CURRÍCULO.
     """
 
-    try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
-
-        response = model.generate_content(
-            f"{prompt}\n\nTEXTO DO CURRÍCULO:\n{truncated_text}",
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.2, 
-                max_output_tokens=10000,  # Aumentado para prevenir truncamento
-                top_p=0.8, 
-                top_k=40
-            ),
-        )
-
-        # Verifica se a resposta foi truncada
-        if hasattr(response.candidates[0], 'finish_reason') and response.candidates[0].finish_reason == 'MAX_OUTPUT_TOKENS':
-            logger.warning("Resposta do Gemini foi truncada devido ao limite de tokens")
-
-        response_text = response.text.strip()
-        logger.debug(f"Resposta bruta do Gemini (primeiros 500 chars): {response_text[:500]}")
-
-        return extract_analysis_json_from_text(response_text)
-
-    except google_exceptions.ResourceExhausted:
-        logger.exception("Quota da API do Gemini excedida ao analisar currículo")
-        raise RateLimitException(
-            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos.",
-            code="ai_quota_exceeded",
-        )
-
-    except google_exceptions.GoogleAPIError:
-        logger.exception("Falha na API do Gemini ao analisar currículo")
-        raise ExternalServiceException(
-            "Serviço de IA indisponível no momento", code="ai_provider_error"
-        )
-
-    except (ValueError, IndexError):
-        # Resposta bloqueada, sem candidatos ou sem JSON utilizável.
-        logger.exception("Resposta inutilizável do Gemini ao analisar currículo")
-        raise ExternalServiceException(
-            "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
-        )
+    return f"{prompt}\n\nTEXTO DO CURRÍCULO:\n{truncated_text}"

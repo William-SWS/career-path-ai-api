@@ -1,4 +1,4 @@
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
 from fastapi_mail import ConnectionConfig
@@ -66,6 +66,10 @@ class Settings(BaseSettings):
 
     # Gemini
     GEMINI_API_KEY: str
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    # Mínimo de 20 s: o SDK responde um 500 sem causa clara a timeouts muito baixos
+    # (googleapis/python-genai#1330).
+    GEMINI_TIMEOUT_SECONDS: int = Field(default=90, ge=20, le=300)
 
 
 settings = Settings()

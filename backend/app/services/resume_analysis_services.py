@@ -1,6 +1,12 @@
 from fastapi import UploadFile
-from app.core.exceptions import ExternalServiceException, NotFoundException
-from app.utils.resume_analysis_utils import analyze_with_gemini
+from app.core.exceptions import NotFoundException
+from app.llm.client import LLMClient
+from app.llm.responses import parse_json_response
+from app.utils.resume_analysis_utils import (
+    RESUME_ANALYSIS_PARAMS,
+    build_resume_analysis_prompt,
+    extract_analysis_json_from_text,
+)
 from app.models.user import User
 from app.schemas.resume_analysis_schema import (
     ResumeAnalysisResponse, 
@@ -19,8 +25,9 @@ def _analysis_not_found() -> NotFoundException:
 
 
 class ResumeAnalysisService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, llm: LLMClient):
         self.db = db
+        self.llm = llm
         self.resume_analysis_repository = ResumeAnalysisRepository(db)
 
     async def analyze_resume_service(
@@ -31,14 +38,9 @@ class ResumeAnalysisService:
         """
         text = await check_pdf(file)
 
-        # Analisa o currículo com Gemini
-        analysis_result = await analyze_with_gemini(text)
-
-        # Valida o resultado antes de salvar
-        if not analysis_result or not isinstance(analysis_result, dict):
-            raise ExternalServiceException(
-                "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
-            )
+        prompt = build_resume_analysis_prompt(text)
+        response_text = await self.llm.generate(prompt, RESUME_ANALYSIS_PARAMS)
+        analysis_result = parse_json_response(extract_analysis_json_from_text, response_text)
 
         # Verifica se tem pelo menos alguns campos esperados
         if not analysis_result.get("professional_summary") and not analysis_result.get("technical_skills"):

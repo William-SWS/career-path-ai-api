@@ -11,6 +11,7 @@ from app.schemas.development_trail_schema import DevelopmentTrailUpdateRequest
 from app.services.development_trail_services import DevelopmentTrailService
 from app.services.user_services import UserService
 from app.utils.token_utils import create_reset_password_token
+from tests.fakes import FakeLLM
 from tests.integration.conftest import open_sessions
 
 pytestmark = pytest.mark.integration
@@ -112,7 +113,7 @@ def test_trail_status_update_is_committed_by_the_service():
                 await setup.commit()
             async with sessions() as session, sessions() as reader:
                 owner = SimpleNamespace(id=user_id)
-                response = await DevelopmentTrailService(session).update_development_trail_status_service(
+                response = await DevelopmentTrailService(session, FakeLLM()).update_development_trail_status_service(
                     trail_id, DevelopmentTrailUpdateRequest(status="Completed"), owner
                 )
                 assert response.status == "Completed"

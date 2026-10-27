@@ -1,5 +1,11 @@
-from app.core.exceptions import ExternalServiceException, NotFoundException
-from app.utils.development_trail_utils import generate_development_trail_with_gemini
+from app.core.exceptions import NotFoundException
+from app.llm.client import LLMClient
+from app.llm.responses import parse_json_response
+from app.utils.development_trail_utils import (
+    DEVELOPMENT_TRAIL_PARAMS,
+    create_adaptive_development_trail_prompt,
+    extract_json_from_response,
+)
 from app.schemas.development_trail_schema import (
     DevelopmentTrailRequest,
     DevelopmentTrailResponse,
@@ -32,21 +38,18 @@ def _to_response(development_trail) -> DevelopmentTrailResponse:
 
 
 class DevelopmentTrailService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, llm: LLMClient):
         self.db = db
+        self.llm = llm
         self.development_trail_repository = DevelopmentTrailRepository(db)
 
     async def generate_development_trail_with_gemini_service(
         self, user_data: DevelopmentTrailRequest, current_user: User
     ) -> DevelopmentTrailResponse:
         """Serviço que gera trilha de desenvolvimento usando Google Gemini"""
-        development_trail_result = await generate_development_trail_with_gemini(user_data)
-
-        # Valida o resultado antes de salvar
-        if not development_trail_result or not isinstance(development_trail_result, dict):
-            raise ExternalServiceException(
-                "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
-            )
+        prompt = create_adaptive_development_trail_prompt(user_data)
+        response_text = await self.llm.generate(prompt, DEVELOPMENT_TRAIL_PARAMS)
+        development_trail_result = parse_json_response(extract_json_from_response, response_text)
 
         # Verifica se tem pelo menos alguns campos esperados
         if not development_trail_result.get("user_profile_summary") and not development_trail_result.get("development_phases"):

@@ -1,25 +1,19 @@
-from app.core.config import settings
-from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
-import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
+from app.llm.client import GenerationParams
 import re
 import json
 
 
-async def generate_interview_guide_with_gemini(resume_text: str, job_description: str) -> dict:
-    """Gera um roteiro de entrevista personalizado usando Google Gemini"""
-    
-    if not settings.GEMINI_API_KEY:
-        raise ExternalServiceException(
-            "Serviço de IA indisponível no momento", code="ai_unavailable"
-        )
-    
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    
+INTERVIEW_GUIDE_PARAMS = GenerationParams(
+    temperature=0.2, top_p=0.7, top_k=40, max_output_tokens=10000
+)
+
+
+def build_interview_guide_prompt(resume_text: str, job_description: str) -> str:
+    """Monta o prompt do guia de entrevista (currículo e vaga truncados)"""
     truncated_resume = resume_text[:6000]
     truncated_job_desc = job_description[:2000]
-    
+
     prompt = """
     VOCÊ É UM ESPECIALISTA EM PREPARAÇÃO PARA ENTREVISTAS DE TECNOLOGIA. 
 
@@ -90,62 +84,17 @@ async def generate_interview_guide_with_gemini(resume_text: str, job_description
     - MANTENHA O FORMATO EXATO ACIMA
     """
 
-    try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        full_prompt = f"""
-        {prompt}
+    return f"""
+    {prompt}
 
-        CURRÍCULO:
-        {truncated_resume}
+    CURRÍCULO:
+    {truncated_resume}
 
-        DESCRIÇÃO DA VAGA:
-        {truncated_job_desc}
+    DESCRIÇÃO DA VAGA:
+    {truncated_job_desc}
 
-        RESPOSTA (APENAS JSON):
-        """
-        
-        response = model.generate_content(
-            full_prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.2,
-                max_output_tokens=10000,  # Aumentado para prevenir truncamento
-                top_p=0.7,
-                top_k=40
-            )
-        )
-        
-        # Verifica se a resposta foi truncada
-        if hasattr(response.candidates[0], 'finish_reason') and response.candidates[0].finish_reason == 'MAX_OUTPUT_TOKENS':
-            logger.warning("Resposta do Gemini foi truncada devido ao limite de tokens")
-        
-        response_text = response.text.strip()
-        logger.debug(f"Resposta bruta do Gemini (primeiros 500 chars): {response_text[:500]}")
-        
-        # Extrai JSON da resposta
-        parsed_response = extract_interview_json_from_text(response_text)
-        
-        return parsed_response
-        
-    except google_exceptions.ResourceExhausted:
-        logger.exception("Quota da API do Gemini excedida ao gerar guia de entrevista")
-        raise RateLimitException(
-            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos.",
-            code="ai_quota_exceeded",
-        )
-
-    except google_exceptions.GoogleAPIError:
-        logger.exception("Falha na API do Gemini ao gerar guia de entrevista")
-        raise ExternalServiceException(
-            "Serviço de IA indisponível no momento", code="ai_provider_error"
-        )
-
-    except (ValueError, IndexError):
-        # Resposta bloqueada, sem candidatos ou sem JSON utilizável.
-        logger.exception("Resposta inutilizável do Gemini ao gerar guia de entrevista")
-        raise ExternalServiceException(
-            "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
-        )
+    RESPOSTA (APENAS JSON):
+    """
 
 
 def extract_interview_json_from_text(text: str) -> dict:

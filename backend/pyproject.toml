@@ -11,7 +11,8 @@ dependencies = [
     "bcrypt==4.0.1",
     "fastapi>=0.119.0",
     "fastapi-mail>=1.5.8",
-    "google-generativeai>=0.8.5",
+    "google-genai>=2,<3",
+    "httpx>=0.28",
     "openai>=2.3.0",
     "passlib>=1.7.4",
     "psycopg2-binary>=2.9.11",
@@ -24,7 +25,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "pytest>=9.2.0",
 ]
 [tool.pytest.ini_options]

@@ -1,66 +1,13 @@
 from app.schemas.development_trail_schema import DevelopmentTrailRequest
-from app.core.config import settings
-from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
-import google.generativeai as genai
-from google.api_core import exceptions as google_exceptions
+from app.llm.client import GenerationParams
 import json
 import re
 
 
-async def generate_development_trail_with_gemini(user_data: DevelopmentTrailRequest) -> dict:
-    """Gera a trilha de desenvolvimento com Google Gemini e devolve o JSON já parseado"""
-
-    if not settings.GEMINI_API_KEY:
-        raise ExternalServiceException(
-            "Serviço de IA indisponível no momento", code="ai_unavailable"
-        )
-
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-
-    prompt = create_adaptive_development_trail_prompt(user_data)
-
-    try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
-
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.3,
-                max_output_tokens=10000,  # Aumentado para prevenir truncamento
-                top_p=0.8,
-                top_k=40
-            ),
-        )
-
-        # Verifica se a resposta foi truncada
-        if hasattr(response.candidates[0], 'finish_reason') and response.candidates[0].finish_reason == 'MAX_OUTPUT_TOKENS':
-            logger.warning("Resposta do Gemini foi truncada devido ao limite de tokens")
-
-        response_text = response.text.strip()
-        logger.debug(f"Resposta bruta do Gemini (primeiros 500 chars): {response_text[:500]}")
-
-        return extract_json_from_response(response_text)
-
-    except google_exceptions.ResourceExhausted:
-        logger.exception("Quota da API do Gemini excedida ao gerar trilha")
-        raise RateLimitException(
-            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos.",
-            code="ai_quota_exceeded",
-        )
-
-    except google_exceptions.GoogleAPIError:
-        logger.exception("Falha na API do Gemini ao gerar trilha")
-        raise ExternalServiceException(
-            "Serviço de IA indisponível no momento", code="ai_provider_error"
-        )
-
-    except (ValueError, IndexError):
-        # Resposta bloqueada, sem candidatos ou sem JSON utilizável.
-        logger.exception("Resposta inutilizável do Gemini ao gerar trilha")
-        raise ExternalServiceException(
-            "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
-        )
+DEVELOPMENT_TRAIL_PARAMS = GenerationParams(
+    temperature=0.3, top_p=0.8, top_k=40, max_output_tokens=10000
+)
 
 
 def create_adaptive_development_trail_prompt(user_data: DevelopmentTrailRequest) -> str:

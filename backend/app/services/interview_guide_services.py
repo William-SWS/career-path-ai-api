@@ -1,7 +1,13 @@
 from fastapi import UploadFile
-from app.core.exceptions import ExternalServiceException, NotFoundException
+from app.core.exceptions import NotFoundException
+from app.llm.client import LLMClient
+from app.llm.responses import parse_json_response
 from app.models.user import User
-from app.utils.interview_guide_utils import generate_interview_guide_with_gemini
+from app.utils.interview_guide_utils import (
+    INTERVIEW_GUIDE_PARAMS,
+    build_interview_guide_prompt,
+    extract_interview_json_from_text,
+)
 from app.schemas.interview_guide_schema import (
     InterviewGuideResponse, 
     InterviewGuideListResponse,
@@ -21,8 +27,9 @@ def _guide_not_found() -> NotFoundException:
 
 
 class InterviewGuideService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, llm: LLMClient):
         self.db = db
+        self.llm = llm
         self.interview_guide_repository = InterviewGuideRepository(db)
 
     async def generate_interview_guide_service(self, file: UploadFile, job_description: str, current_user: User) -> InterviewGuideResponse:
@@ -31,14 +38,9 @@ class InterviewGuideService:
         """
         resume_text = await check_pdf(file)
 
-        # Gera o guia de entrevista com Gemini
-        interview_guide_result = await generate_interview_guide_with_gemini(resume_text, job_description)
-
-        # Valida o resultado antes de salvar
-        if not interview_guide_result or not isinstance(interview_guide_result, dict):
-            raise ExternalServiceException(
-                "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
-            )
+        prompt = build_interview_guide_prompt(resume_text, job_description)
+        response_text = await self.llm.generate(prompt, INTERVIEW_GUIDE_PARAMS)
+        interview_guide_result = parse_json_response(extract_interview_json_from_text, response_text)
 
         # Verifica se tem pelo menos alguns campos esperados
         if not interview_guide_result.get("preparation_overview") and not interview_guide_result.get("technical_preparation"):
