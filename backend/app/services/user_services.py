@@ -66,7 +66,13 @@ class UserService:
     async def authenticate_user(self, email: str, password: str) -> User:
         user = await self.user_repository.get_by_email(email)
 
-        if not user or not bcrypt_context.verify(password, user.password_hash):
+        if not user:
+            # Gasta o mesmo tempo de hashing de uma conta real, para que o tempo
+            # de resposta não revele quais e-mails estão cadastrados.
+            bcrypt_context.dummy_verify()
+            raise AuthenticationException("Credenciais inválidas", code="invalid_credentials")
+
+        if not bcrypt_context.verify(password, user.password_hash):
             raise AuthenticationException("Credenciais inválidas", code="invalid_credentials")
 
         return user
@@ -182,15 +188,12 @@ class UserService:
 
     async def forgot_user_password(self, request_data: ForgotPasswordRequest, background_tasks) -> MessageResponse:
         """
-        Recebe o email, busca usuário e envia email com token
+        Envia o e-mail de reset se a conta existir. A resposta é a mesma nos dois
+        casos, para não revelar quais e-mails estão cadastrados.
         """
         user = await self.user_repository.get_by_email(request_data.email)
-        if not user:
-            raise ValidationException(
-                "Erro ao gerar link para resetar senha", code="password_reset_unavailable"
-            )
-
-        await send_password_reset_email(user, background_tasks)
+        if user:
+            await send_password_reset_email(user, background_tasks)
 
         return MessageResponse(message="Se o email existir, enviaremos instruções de reset")
 

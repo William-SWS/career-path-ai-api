@@ -156,3 +156,47 @@ def test_password_reset_works_once_and_changes_the_credentials(http, session_tok
     assert login("Newpass12").status_code == 200
     assert login(CREDENTIALS["password"]).status_code == 401
     assert login("Another123").status_code == 401
+
+
+@pytest.fixture
+def outbox(monkeypatch):
+    """Intercepta o FastMail: nenhum e-mail real é enviado."""
+    sent = []
+
+    class FakeMail:
+        def __init__(self, config):
+            pass
+
+        async def send_message(self, message, template_name=None):
+            sent.append(message)
+
+    monkeypatch.setattr("app.core.email.FastMail", FakeMail)
+    return sent
+
+
+def test_forgot_password_response_does_not_reveal_which_accounts_exist(http, session_tokens, outbox):
+    ask = lambda email: http.post(f"{API}/auth/forgot-password", json={"email": email})
+
+    known, unknown = ask(CREDENTIALS["email"]), ask("ghost@example.com")
+
+    assert known.status_code == unknown.status_code == 200
+    assert known.json() == unknown.json()
+    assert [m.recipients[0].email for m in outbox] == [CREDENTIALS["email"]]
+
+
+def test_the_emailed_link_resets_the_password(http, session_tokens, outbox):
+    http.post(f"{API}/auth/forgot-password", json={"email": CREDENTIALS["email"]})
+
+    link = outbox[0].template_body["reset_url"]
+    token = link.split("token=")[1]
+    reset = http.post(f"{API}/auth/reset-password", json={"reset_token": token, "new_password": "Newpass12"})
+
+    assert reset.status_code == 200
+
+
+def test_login_error_is_the_same_for_unknown_account_and_wrong_password(http, session_tokens):
+    wrong_password = http.post(f"{API}/auth/login", json={**CREDENTIALS, "password": "WrongPass1"})
+    unknown_account = http.post(f"{API}/auth/login", json={"email": "ghost@example.com", "password": "WrongPass1"})
+
+    assert wrong_password.status_code == unknown_account.status_code == 401
+    assert wrong_password.json() == unknown_account.json()

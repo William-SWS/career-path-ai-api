@@ -181,13 +181,6 @@ def test_delete_with_correct_password_removes_user():
     assert service.user_repository.deleted_ids == [me.id]
 
 
-def test_forgot_password_for_unknown_email_is_validation_error():
-    service = make_service()
-
-    with pytest.raises(ValidationException):
-        run(service.forgot_user_password(ForgotPasswordRequest(email="x@example.com"), BackgroundTasks()))
-
-
 def test_reset_password_with_invalid_token_is_validation_error():
     service = make_service(make_user())
     data = ResetPasswordRequest(reset_token="not-a-jwt", new_password="Newpass12")
@@ -420,3 +413,64 @@ def test_different_passwords_yield_different_reset_tokens_fingerprints():
 
     assert claim(PASSWORD_HASH) != claim(other_hash)
     assert claim(PASSWORD_HASH) == claim(PASSWORD_HASH)
+
+
+# ---------- anti-enumeração de contas
+
+def forgot(service, email):
+    tasks = BackgroundTasks()
+    response = run(service.forgot_user_password(ForgotPasswordRequest(email=email), tasks))
+    return response, tasks
+
+
+def test_forgot_password_answers_identically_for_known_and_unknown_emails():
+    service = make_service(make_user())
+
+    known, _ = forgot(service, "maria@example.com")
+    unknown, _ = forgot(service, "ghost@example.com")
+
+    assert known == unknown
+
+
+def test_forgot_password_only_sends_an_email_to_existing_accounts():
+    service = make_service(make_user())
+
+    _, known_tasks = forgot(service, "maria@example.com")
+    _, unknown_tasks = forgot(service, "ghost@example.com")
+
+    assert len(known_tasks.tasks) == 1
+    assert len(unknown_tasks.tasks) == 0
+
+
+def test_login_spends_hashing_time_even_when_the_account_does_not_exist(monkeypatch):
+    calls = []
+    monkeypatch.setattr(user_services.bcrypt_context, "dummy_verify", lambda: calls.append("dummy"))
+    service = make_service(make_user())
+
+    with pytest.raises(AuthenticationException):
+        run(service.login(LoginRequest(email="ghost@example.com", password=PASSWORD)))
+
+    assert calls == ["dummy"]
+
+
+def test_login_with_a_real_account_does_not_need_the_dummy_hash(monkeypatch):
+    calls = []
+    monkeypatch.setattr(user_services.bcrypt_context, "dummy_verify", lambda: calls.append("dummy"))
+    service = make_service(make_user())
+
+    with pytest.raises(AuthenticationException):
+        run(service.login(LoginRequest(email="maria@example.com", password="WrongPass1")))
+
+    assert calls == []
+
+
+def test_unknown_account_and_wrong_password_are_indistinguishable():
+    service = make_service(make_user())
+
+    errors = []
+    for email in ("ghost@example.com", "maria@example.com"):
+        with pytest.raises(AuthenticationException) as exc_info:
+            run(service.login(LoginRequest(email=email, password="WrongPass1")))
+        errors.append((exc_info.value.status_code, exc_info.value.code, exc_info.value.message))
+
+    assert errors[0] == errors[1]
