@@ -126,3 +126,33 @@ def test_logout_rejects_a_refresh_token_of_another_user(http, session_tokens):
     # nada foi revogado: o access token ainda vale e a sessão da Ana segue renovável
     assert http.get(f"{API}/users/me", headers=bearer(session_tokens["access_token"])).status_code == 200
     assert http.post(f"{API}/auth/refresh", headers=bearer(other["refresh_token"])).status_code == 200
+
+
+def reset_token_for(http, email):
+    """Token como o enviado por e-mail, montado a partir do hash gravado no banco."""
+    import asyncio
+    from app.repository.user_repository import UserRepository
+
+    async def stored_hash():
+        engine = create_async_engine(settings.DATABASE_URI, poolclass=NullPool)
+        try:
+            async with async_sessionmaker(engine, class_=AsyncSession)() as session:
+                return (await UserRepository(session).get_by_email(email)).password_hash
+        finally:
+            await engine.dispose()
+
+    from app.utils.token_utils import create_reset_password_token
+    return create_reset_password_token(email, asyncio.run(stored_hash()))
+
+
+def test_password_reset_works_once_and_changes_the_credentials(http, session_tokens):
+    token = reset_token_for(http, CREDENTIALS["email"])
+    reset = lambda password: http.post(f"{API}/auth/reset-password", json={"reset_token": token, "new_password": password})
+
+    assert reset("Newpass12").status_code == 200
+    assert reset("Another123").status_code == 400  # mesmo token, segunda vez
+
+    login = lambda password: http.post(f"{API}/auth/login", json={"email": CREDENTIALS["email"], "password": password})
+    assert login("Newpass12").status_code == 200
+    assert login(CREDENTIALS["password"]).status_code == 401
+    assert login("Another123").status_code == 401

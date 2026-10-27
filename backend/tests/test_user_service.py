@@ -4,7 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import BackgroundTasks
+from jose import jwt
 
+from app.core.config import settings
 from app.core.exceptions import (
     AuthenticationException,
     ConflictException,
@@ -198,7 +200,7 @@ def test_reset_password_with_invalid_token_is_validation_error():
 
 def test_reset_password_for_deleted_user_is_not_found():
     service = make_service()
-    token = create_reset_password_token("ghost@example.com")
+    token = create_reset_password_token("ghost@example.com", "hash")
 
     with pytest.raises(NotFoundException):
         run(service.reset_user_password(ResetPasswordRequest(reset_token=token, new_password="Newpass12")))
@@ -208,7 +210,7 @@ def test_reset_password_for_deleted_user_is_not_found():
 
 def test_successful_writes_commit_exactly_once():
     me = make_user()
-    reset_token = create_reset_password_token(me.email)
+    reset_token = create_reset_password_token(me.email, me.password_hash)
     calls = {
         "register": lambda s: s.create_user_account(
             RegisterRequest(name="Ana Souza", email="ana@example.com", password=PASSWORD)),
@@ -345,3 +347,76 @@ def test_logout_rejects_a_refresh_token_of_another_user_and_revokes_nothing(monk
     assert exc_info.value.code == "refresh_token_mismatch"
     assert revoked(service) == []
     assert service.db.commits == 0
+
+
+# ---------- token de reset de uso único (impressão digital da senha atual)
+
+def reset_with(service, token, new_password="Newpass12"):
+    return run(service.reset_user_password(ResetPasswordRequest(reset_token=token, new_password=new_password)))
+
+
+def test_reset_token_can_be_used_only_once():
+    me = make_user()
+    service = make_service(me)
+    token = create_reset_password_token(me.email, me.password_hash)
+
+    reset_with(service, token)
+
+    with pytest.raises(ValidationException) as exc_info:
+        reset_with(service, token, new_password="Another123")
+    assert exc_info.value.code == "invalid_reset_token"
+    assert service.db.commits == 1
+
+
+def test_reset_token_stops_working_when_the_password_changes_by_any_other_means():
+    me = make_user()
+    service = make_service(me)
+    token = create_reset_password_token(me.email, me.password_hash)
+    me.password_hash = bcrypt_context.hash("Changed123")  # ex.: reset anterior por outro e-mail
+
+    with pytest.raises(ValidationException) as exc_info:
+        reset_with(service, token)
+
+    assert exc_info.value.code == "invalid_reset_token"
+    assert service.db.commits == 0
+
+
+def test_only_the_latest_reset_email_matters_after_a_reset():
+    me = make_user()
+    service = make_service(me)
+    first = create_reset_password_token(me.email, me.password_hash)
+    second = create_reset_password_token(me.email, me.password_hash)
+
+    reset_with(service, first)
+
+    with pytest.raises(ValidationException):
+        reset_with(service, second)
+
+
+def test_legacy_reset_token_without_password_fingerprint_is_rejected():
+    me = make_user()
+    legacy = jwt.encode(
+        {"sub": me.email, "type": "reset_password", "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+        settings.SECRET_KEY, settings.ALGORITHM,
+    )
+
+    with pytest.raises(ValidationException):
+        reset_with(make_service(me), legacy)
+
+
+def test_reset_token_does_not_embed_the_password_hash():
+    token = create_reset_password_token("a@b.co", PASSWORD_HASH)
+
+    claims = jwt.get_unverified_claims(token)
+
+    assert PASSWORD_HASH not in token
+    assert PASSWORD_HASH not in claims.values()
+    assert claims["pwd"]
+
+
+def test_different_passwords_yield_different_reset_tokens_fingerprints():
+    other_hash = bcrypt_context.hash(PASSWORD)
+    claim = lambda h: jwt.get_unverified_claims(create_reset_password_token("a@b.co", h))["pwd"]
+
+    assert claim(PASSWORD_HASH) != claim(other_hash)
+    assert claim(PASSWORD_HASH) == claim(PASSWORD_HASH)

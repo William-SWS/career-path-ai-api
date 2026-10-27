@@ -85,10 +85,11 @@ def test_reset_password_persists_the_new_hash():
     async def scenario():
         async with open_sessions() as sessions:
             async with sessions() as setup:
-                email = (await _create_user(setup)).email
+                created = await _create_user(setup)
+                email, password_hash = created.email, created.password_hash
                 await setup.commit()
             async with sessions() as session, sessions() as reader:
-                token = create_reset_password_token(email)
+                token = create_reset_password_token(email, password_hash)
 
                 await UserService(session).reset_user_password(
                     ResetPasswordRequest(reset_token=token, new_password="Newpass12")

@@ -15,7 +15,7 @@ def test_removed_debug_endpoints_are_not_exposed(client):
 
 
 def test_password_reset_email_does_not_print_token(capsys):
-    user = SimpleNamespace(email="user@example.com", name="User")
+    user = SimpleNamespace(email="user@example.com", name="User", password_hash="hash")
 
     asyncio.run(send_password_reset_email(user, BackgroundTasks()))
 

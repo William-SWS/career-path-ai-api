@@ -18,7 +18,7 @@ async def send_email(recipients: list, subject: str, context: dict, template_nam
     background_tasks.add_task(fm.send_message, message, template_name=template_name)
 
 async def send_password_reset_email(user: User, background_tasks: BackgroundTasks):
-    token = create_reset_password_token(user.email)
+    token = create_reset_password_token(user.email, user.password_hash)
 
     reset_url = f"{settings.FRONTEND_HOST}/reset?token={token}"
     

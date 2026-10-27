@@ -24,7 +24,7 @@ def test_tokens_carry_their_type():
 
     assert claims(create_token(1))["type"] == "access"
     assert claims(create_token(1, TokenType.REFRESH))["type"] == "refresh"
-    assert claims(create_reset_password_token("a@b.co"))["type"] == "reset_password"
+    assert claims(create_reset_password_token("a@b.co", "hash"))["type"] == "reset_password"
 
 
 def test_refresh_token_outlives_access_token():
@@ -38,7 +38,7 @@ def test_refresh_token_outlives_access_token():
     [
         (create_token(1, TokenType.REFRESH), TokenType.ACCESS),
         (create_token(1), TokenType.REFRESH),
-        (create_reset_password_token("a@b.co"), TokenType.ACCESS),
+        (create_reset_password_token("a@b.co", "hash"), TokenType.ACCESS),
         (create_token(1), TokenType.RESET_PASSWORD),
     ],
     ids=["refresh-as-access", "access-as-refresh", "reset-as-access", "access-as-reset"],
@@ -68,7 +68,7 @@ def bearer(token: str) -> dict:
     "token",
     [
         create_token(1, TokenType.REFRESH),
-        create_reset_password_token("a@b.co"),
+        create_reset_password_token("a@b.co", "hash"),
         sign({"sub": "1", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}),
         sign({"sub": "not-a-number", "type": "access", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}),
         sign({"type": "access", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}),
@@ -89,7 +89,7 @@ def test_protected_route_rejects_anything_but_a_valid_access_token(client, token
     [
         create_token(1),
         expired_token(TokenType.REFRESH),
-        create_reset_password_token("a@b.co"),
+        create_reset_password_token("a@b.co", "hash"),
         "garbage",
     ],
     ids=["access", "expired-refresh", "reset", "garbage"],

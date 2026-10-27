@@ -15,7 +15,11 @@ from app.core.security import (
     is_token_blacklisted,
 )
 from app.core.email import send_password_reset_email
-from app.utils.token_utils import get_token_subject, verify_reset_password_token
+from app.utils.token_utils import (
+    get_token_subject,
+    read_reset_password_token,
+    reset_token_matches_password,
+)
 from app.schemas.user_schema import (
     UserUpdateRequest,
     UserUpdateResponse,
@@ -191,13 +195,17 @@ class UserService:
         return MessageResponse(message="Se o email existir, enviaremos instruções de reset")
 
     async def reset_user_password(self, request_data: ResetPasswordRequest) -> MessageResponse:
-        email = verify_reset_password_token(request_data.reset_token)
-        if not email:
+        claims = read_reset_password_token(request_data.reset_token)
+        if not claims:
             raise ValidationException("Token inválido ou expirado", code="invalid_reset_token")
 
-        user = await self.user_repository.get_by_email(email)
+        user = await self.user_repository.get_by_email(claims.email)
         if not user:
             raise NotFoundException("Usuário não encontrado", code="user_not_found")
+
+        # O token só vale para a senha que existia quando ele foi emitido.
+        if not reset_token_matches_password(claims, user.password_hash):
+            raise ValidationException("Token inválido ou expirado", code="invalid_reset_token")
 
         hashed_password = bcrypt_context.hash(request_data.new_password)
 
