@@ -1,4 +1,5 @@
 import { apiRequest } from '../utils/apiClient';
+import { readErrorMessage } from '../utils/errorMessage';
 
 const API_URL = 'http://localhost:8000';
 
@@ -12,41 +13,8 @@ export async function registerUser(email, name, password) {
   });
 
   if (!response.ok) {
-    let errorMessage = 'Erro ao cadastrar. Verifique os dados e tente novamente.';
-    
-    try {
-      const errorData = await response.json();
-      
-      // Trata diferentes formatos de erro do FastAPI
-      if (errorData.detail) {
-        // Se detail for um objeto (ex: {"error": "...", "message": "..."})
-        if (typeof errorData.detail === 'object') {
-          if (errorData.detail.message) {
-            errorMessage = errorData.detail.message;
-          } else if (errorData.detail.error) {
-            errorMessage = errorData.detail.error;
-          } else {
-            errorMessage = JSON.stringify(errorData.detail);
-          }
-        } 
-        // Se detail for um array (erros de validação do Pydantic)
-        else if (Array.isArray(errorData.detail)) {
-          const messages = errorData.detail.map(err => {
-            if (err.msg) return err.msg;
-            return `${err.loc?.join('.')}: ${err.msg || 'Erro de validação'}`;
-          });
-          errorMessage = messages.join('. ');
-        }
-        // Se detail for uma string
-        else {
-          errorMessage = errorData.detail;
-        }
-      }
-    } catch (e) {
-      // Se não conseguir parsear JSON, usa mensagem padrão
-      errorMessage = `Erro ${response.status}: ${response.statusText}`;
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao cadastrar. Verifique os dados e tente novamente.');
+
     const error = new Error(errorMessage);
     error.status = response.status;
     throw error;
@@ -65,18 +33,8 @@ export async function loginUser(email, password) {
   });
 
   if (!response.ok) {
-    let errorMessage = 'Credenciais inválidas';
-    
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      }
-    } catch (e) {
-      // Se não conseguir parsear JSON, usa mensagem padrão
-      errorMessage = `Erro ${response.status}: ${response.statusText}`;
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Credenciais inválidas');
+
     const error = new Error(errorMessage);
     error.status = response.status;
     throw error;
@@ -158,17 +116,8 @@ export async function excludeUser(password) {
   });
 
   if (!response.ok) {
-    let errorMessage = 'Erro ao excluir conta';
-    
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      }
-    } catch (e) {
-      // Usa mensagem padrão se não conseguir parsear
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao excluir conta');
+
     const error = new Error(errorMessage);
     error.status = response.status;
     throw error;
@@ -194,17 +143,8 @@ export async function EditUserName(name) {
   });
 
   if (!response.ok) {
-    let errorMessage = 'Erro ao atualizar nome';
-    
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      }
-    } catch (e) {
-      // Usa mensagem padrão se não conseguir parsear
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao atualizar nome');
+
     const error = new Error(errorMessage);
     error.status = response.status;
     throw error;
@@ -232,19 +172,8 @@ export async function getDevelopmentTrails(skip = 0, limit = 100) {
     if (response.status === 404) {
       return { development_trails: [], total_count: 0 };
     }
-    
-    const errorText = await response.text();
-    let errorMessage = 'Erro ao buscar trilhas de desenvolvimento';
-    
-    try {
-      const errorData = JSON.parse(errorText);
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      }
-    } catch (e) {
-      // Usa mensagem padrão se não conseguir parsear
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao buscar trilhas de desenvolvimento');
+
     throw new Error(errorMessage);
   }
 
@@ -266,17 +195,8 @@ export async function getDevelopmentTrailById(trailId) {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = 'Erro ao buscar trilha de desenvolvimento';
-    
-    if (response.status === 404) {
-      errorMessage = 'Trilha não encontrada';
-    } else if (response.status === 401) {
-      errorMessage = 'Não autorizado';
-    } else if (response.status === 403) {
-      errorMessage = 'Acesso negado';
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao buscar trilha de desenvolvimento');
+
     const error = new Error(errorMessage);
     error.status = response.status;
     throw error;
@@ -304,15 +224,7 @@ export async function getTotalDevelopmentTrail() {
     if (response.status === 404) {
       return 0;
     }
-    
-    const errorText = await response.text();
-    let errorMessage = 'Erro ao buscar total de trilhas';
-
-    if (response.status === 401) {
-      errorMessage = 'Não autorizado';
-    } else if (response.status === 403) {
-      errorMessage = 'Acesso negado';
-    }
+    const errorMessage = await readErrorMessage(response, 'Erro ao buscar total de trilhas');
 
     const error = new Error(errorMessage);
     error.status = response.status;
@@ -343,15 +255,7 @@ export async function getTotalAnalyzeResume() {
     if (response.status === 404) {
       return 0;
     }
-    
-    const errorText = await response.text();
-    let errorMessage = 'Erro ao buscar total de currículos';
-
-    if (response.status === 401) {
-      errorMessage = 'Não autorizado';
-    } else if (response.status === 403) {
-      errorMessage = 'Acesso negado';
-    }
+    const errorMessage = await readErrorMessage(response, 'Erro ao buscar total de currículos');
 
     const error = new Error(errorMessage);
     error.status = response.status;
@@ -378,16 +282,7 @@ export async function getTotalInterviewGuide() {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = 'Erro ao buscar total de conversas';
-
-    if (response.status === 404) {
-      errorMessage = 'Nenhuma conversa encontrada';
-    } else if (response.status === 401) {
-      errorMessage = 'Não autorizado';
-    } else if (response.status === 403) {
-      errorMessage = 'Acesso negado';
-    }
+    const errorMessage = await readErrorMessage(response, 'Erro ao buscar total de conversas');
 
     const error = new Error(errorMessage);
     error.status = response.status;
@@ -423,35 +318,8 @@ export async function analyzeResume(file) {
   });
 
   if (!response.ok) {
-    let errorMessage = 'Erro ao enviar currículo para análise';
-    
-    try {
-      const errorData = await response.json();
-      // Tenta extrair a mensagem de erro do backend
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      } else if (errorData.message) {
-        errorMessage = errorData.message;
-      }
-    } catch (e) {
-      // Se não conseguir parsear JSON, usa o texto bruto
-      try {
-        const errorText = await response.text();
-        if (errorText) {
-          // Tenta extrair mensagem de erro se estiver em formato JSON como string
-          try {
-            const parsed = JSON.parse(errorText);
-            errorMessage = parsed.detail || parsed.message || errorText;
-          } catch {
-            errorMessage = errorText.substring(0, 200); // Limita tamanho
-          }
-        }
-      } catch (textError) {
-        // Se não conseguir ler o texto, usa mensagem padrão
-        errorMessage = `Erro ${response.status}: ${response.statusText}`;
-      }
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao enviar currículo para análise');
+
     const error = new Error(errorMessage);
     error.status = response.status;
     throw error;
@@ -485,29 +353,8 @@ export async function analyzeInterviewGuide(job_description, file) {
   });
 
   if (!response.ok) {
-    let errorMessage = 'Erro ao gerar guia de entrevista';
-    try {
-      const errorData = await response.json();
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      } else if (errorData.message) {
-        errorMessage = errorData.message;
-      }
-    } catch (e) {
-      try {
-        const errorText = await response.text();
-        if (errorText) {
-          try {
-            const parsed = JSON.parse(errorText);
-            errorMessage = parsed.detail || parsed.message || errorText;
-          } catch {
-            errorMessage = errorText.substring(0, 200);
-          }
-        }
-      } catch (textError) {
-        errorMessage = `Erro ${response.status}: ${response.statusText}`;
-      }
-    }
+    const errorMessage = await readErrorMessage(response, 'Erro ao gerar guia de entrevista');
+
     const error = new Error(errorMessage);
     error.status = response.status;
     throw error;
@@ -557,19 +404,8 @@ export async function getResumeAnalyses(skip = 0, limit = 100) {
     if (response.status === 404) {
       return { analyses: [], total_count: 0 };
     }
-    
-    const errorText = await response.text();
-    let errorMessage = 'Erro ao buscar análises de currículo';
-    
-    try {
-      const errorData = JSON.parse(errorText);
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      }
-    } catch (e) {
-      // Usa mensagem padrão se não conseguir parsear
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao buscar análises de currículo');
+
     throw new Error(errorMessage);
   }
 
@@ -638,19 +474,8 @@ export async function getInterviewGuides(skip = 0, limit = 100) {
     if (response.status === 404) {
       return { interview_guides: [], total_count: 0 };
     }
-    
-    const errorText = await response.text();
-    let errorMessage = 'Erro ao buscar guias de entrevista';
-    
-    try {
-      const errorData = JSON.parse(errorText);
-      if (errorData.detail) {
-        errorMessage = errorData.detail;
-      }
-    } catch (e) {
-      // Usa mensagem padrão se não conseguir parsear
-    }
-    
+    const errorMessage = await readErrorMessage(response, 'Erro ao buscar guias de entrevista');
+
     throw new Error(errorMessage);
   }
 
@@ -696,8 +521,8 @@ export async function createDevelopmentTrail(trailData) {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Erro ao criar trilha: ${errorText}`);
+    const errorMessage = await readErrorMessage(response, 'Erro ao criar trilha');
+    throw new Error(errorMessage);
   }
 
   return await response.json();
