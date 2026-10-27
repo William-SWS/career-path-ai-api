@@ -56,10 +56,11 @@ class InterviewGuideService:
         except HTTPException:
             await self.db.rollback()
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao gerar guia de entrevista")
             await self.db.rollback()
             raise HTTPException(
-                status_code=500, detail=f"Erro ao gerar guia de entrevista: {str(e)}"
+                status_code=500, detail="Erro ao gerar guia de entrevista"
             )
         
     async def get_interview_guide_service(self, current_user: User, skip: int, limit: int) -> InterviewGuideListResponse:
@@ -78,10 +79,11 @@ class InterviewGuideService:
                 total_count=total_count
             )
         
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao buscar análises")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao buscar análises: {str(e)}"
+                detail="Erro ao buscar análises"
             )
         
     async def get_interview_guide_by_id_service(
@@ -111,10 +113,11 @@ class InterviewGuideService:
             )
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao buscar guia de entrevista")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao buscar guia de entrevista: {str(e)}"
+                detail="Erro ao buscar guia de entrevista"
             )
     
     async def delete_interview_guide_service(
@@ -146,9 +149,10 @@ class InterviewGuideService:
         except HTTPException:
             await self.db.rollback()
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao deletar guia de entrevista")
             await self.db.rollback()
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao deletar guia de entrevista: {str(e)}"
+                detail="Erro ao deletar guia de entrevista"
             )

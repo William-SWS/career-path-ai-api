@@ -20,8 +20,6 @@ async def send_email(recipients: list, subject: str, context: dict, template_nam
 async def send_password_reset_email(user: User, background_tasks: BackgroundTasks):
     token = create_reset_password_token(user.email)
 
-    print(f"TOKEN PARA TESTES: {token}")
-    
     reset_url = f"{settings.FRONTEND_HOST}/reset?token={token}"
     
     data = {

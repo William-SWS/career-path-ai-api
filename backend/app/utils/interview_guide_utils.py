@@ -10,7 +10,7 @@ async def generate_interview_guide_with_gemini(resume_text: str, job_description
     """Gera um roteiro de entrevista personalizado usando Google Gemini"""
     
     if not settings.GEMINI_API_KEY:
-        raise ValueError("Chave da API do Gemini não configurada. Configure GEMINI_API_KEY no arquivo .env")
+        raise ValueError("Serviço de IA indisponível no momento")
     
     genai.configure(api_key=settings.GEMINI_API_KEY)
     
@@ -124,32 +124,15 @@ async def generate_interview_guide_with_gemini(resume_text: str, job_description
         
         return parsed_response
         
-    except google_exceptions.ResourceExhausted as e:
-        error_msg = str(e)
-        logger.error(f"ERRO ao gerar guia: Quota da API do Gemini excedida. {error_msg}")
-        if "quota" in error_msg.lower() or "429" in error_msg:
-            raise ValueError(
-                "Limite de quota da API do Gemini excedido. Por favor, aguarde alguns minutos ou verifique sua conta na Google AI Studio."
-            )
-        raise ValueError(f"Erro de quota na API do Gemini: {error_msg}")
-        
-    except google_exceptions.InvalidArgument as e:
-        error_msg = str(e)
-        logger.error(f"ERRO ao gerar guia: Argumento inválido. {error_msg}")
-        if "API key" in error_msg or "expired" in error_msg.lower():
-            raise ValueError(
-                "Chave da API do Gemini inválida ou expirada. Verifique a configuração no arquivo .env"
-            )
-        raise ValueError(f"Erro na chamada da API do Gemini: {error_msg}")
-        
-    except Exception as e:
-        error_msg = str(e)
-        logger.error(f"ERRO ao gerar guia: {error_msg}")
-        if "API key" in error_msg or "expired" in error_msg.lower():
-            raise ValueError(
-                "Chave da API do Gemini inválida ou expirada. Verifique a configuração no arquivo .env"
-            )
-        raise ValueError(f"Erro ao gerar guia de entrevista: {error_msg}")
+    except google_exceptions.ResourceExhausted:
+        logger.exception("Quota da API do Gemini excedida ao gerar guia de entrevista")
+        raise ValueError(
+            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos."
+        )
+
+    except Exception:
+        logger.exception("Erro ao gerar guia de entrevista")
+        raise ValueError("Erro ao gerar guia de entrevista")
 
 
 def extract_interview_json_from_text(text: str) -> dict:
@@ -206,7 +189,7 @@ def extract_interview_json_from_text(text: str) -> dict:
                         logger.error(f"Falha ao extrair JSON parcial: {partial_error}")
         
         # Se nada funcionar, levanta exceção
-        raise ValueError(f"Não foi possível extrair JSON válido do texto. Erro: {str(e)}")
+        raise ValueError("Não foi possível extrair JSON válido da resposta do modelo")
 
 
 def extract_partial_valid_json(json_str: str, error: json.JSONDecodeError) -> dict:

@@ -202,7 +202,7 @@ def extract_json_from_response(response_text: str) -> dict:
                     logger.error(f"Falha ao reparar JSON: {repair_error}")
         
         # Se nada funcionar, levanta exceção
-        raise ValueError(f"Não foi possível extrair JSON válido do texto. Erro: {str(e)}")
+        raise ValueError("Não foi possível extrair JSON válido da resposta do modelo")
 
 
 def repair_truncated_json(json_str: str, error: json.JSONDecodeError = None) -> str:

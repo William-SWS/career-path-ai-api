@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from app.models.user import User
+from app.core.logging_config import logger
 from app.core.security import bcrypt_context, create_token, add_token_to_blacklist
 from app.core.email import send_password_reset_email
 from app.utils.token_utils import verify_reset_password_token
@@ -50,9 +51,10 @@ class UserService:
 
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro interno ao criar usuário")
             raise HTTPException(
-                status_code=500, detail=f"Erro interno ao criar usuário: {str(e)}"
+                status_code=500, detail="Erro interno ao criar usuário"
             )
 
     async def authenticate_user(self, email: str, password: str) -> User:
@@ -156,9 +158,10 @@ class UserService:
             return MessageResponse(message="Usuário deletado com sucesso")
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro interno no servidor")
             raise HTTPException(
-                status_code=500, detail=f"Erro interno no servidor: {str(e)}"
+                status_code=500, detail="Erro interno no servidor"
             )
 
     async def retrieve_user_data(self, current_user: User) -> UserGetResponse:
@@ -178,9 +181,10 @@ class UserService:
             )
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro interno no servidor")
             raise HTTPException(
-                status_code=500, detail=f"Erro interno no servidor: {str(e)}"
+                status_code=500, detail="Erro interno no servidor"
             )
     
     async def forgot_user_password(self, request_data: ForgotPasswordRequest, background_tasks) -> MessageResponse:
@@ -218,6 +222,7 @@ class UserService:
             return MessageResponse(message="Senha resetada com sucesso")
         except HTTPException:
             raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro interno ao resetar senha: {str(e)}")
+        except Exception:
+            logger.exception("Erro interno ao resetar senha")
+            raise HTTPException(status_code=500, detail="Erro interno ao resetar senha")
 

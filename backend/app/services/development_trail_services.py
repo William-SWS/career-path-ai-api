@@ -34,7 +34,7 @@ class DevelopmentTrailService:
         if not settings.GEMINI_API_KEY:
             raise HTTPException(
                 status_code=500,
-                detail="Chave da API do Gemini não configurada. Configure GEMINI_API_KEY no arquivo .env"
+                detail="Serviço de IA indisponível no momento"
             )
         
         genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -91,56 +91,30 @@ class DevelopmentTrailService:
                 updated_at=development_trail.updated_at
             )
 
-        except google_exceptions.ResourceExhausted as e:
+        except google_exceptions.ResourceExhausted:
             await self.db.rollback()
-            error_msg = str(e)
-            logger.error(f"ERRO ao gerar trilha: Quota da API do Gemini excedida. {error_msg}")
-            if "quota" in error_msg.lower() or "429" in error_msg:
-                raise HTTPException(
-                    status_code=429,
-                    detail="Limite de quota da API do Gemini excedido. Por favor, aguarde alguns minutos ou verifique sua conta na Google AI Studio."
-                )
+            logger.exception("Quota da API do Gemini excedida ao gerar trilha")
             raise HTTPException(
-                status_code=500,
-                detail=f"Erro de quota na API do Gemini: {error_msg}"
+                status_code=429,
+                detail="Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos."
             )
-            
-        except google_exceptions.InvalidArgument as e:
-            await self.db.rollback()
-            error_msg = str(e)
-            logger.error(f"ERRO ao gerar trilha: Argumento inválido. {error_msg}")
-            if "API key" in error_msg or "expired" in error_msg.lower():
-                raise HTTPException(
-                    status_code=500,
-                    detail="Chave da API do Gemini inválida ou expirada. Verifique a configuração no arquivo .env"
-                )
-            raise HTTPException(
-                status_code=500,
-                detail=f"Erro na chamada da API do Gemini: {error_msg}"
-            )
-            
+
         except ValueError as e:
             await self.db.rollback()
             raise HTTPException(status_code=400, detail=str(e))
-            
+
         except HTTPException:
             await self.db.rollback()
             raise
-            
-        except Exception as e:
+
+        except Exception:
             await self.db.rollback()
-            error_msg = str(e)
-            logger.error(f"ERRO ao gerar trilha: {error_msg}")
-            if "API key" in error_msg or "expired" in error_msg.lower():
-                raise HTTPException(
-                    status_code=500,
-                    detail="Chave da API do Gemini inválida ou expirada. Verifique a configuração no arquivo .env"
-                )
+            logger.exception("Erro ao gerar trilha de desenvolvimento")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro interno ao gerar trilha de desenvolvimento: {error_msg}"
+                detail="Erro interno ao gerar trilha de desenvolvimento"
             )
-        
+
     async def get_development_trail_service(
         self, current_user: User, skip: int, limit: int
     ) -> DevelopmentTrailListResponse:
@@ -166,10 +140,11 @@ class DevelopmentTrailService:
         
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao buscar trilhas de desenvolvimento")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao buscar trilhas de desenvolvimento: {str(e)}"
+                detail="Erro ao buscar trilhas de desenvolvimento"
             )
 
     async def get_development_trail_by_id_service(
@@ -200,10 +175,11 @@ class DevelopmentTrailService:
         
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao buscar trilha de desenvolvimento")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao buscar trilha de desenvolvimento: {str(e)}"
+                detail="Erro ao buscar trilha de desenvolvimento"
             )
         
     async def update_development_trail_status_service(
@@ -245,11 +221,12 @@ class DevelopmentTrailService:
 
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao atualizar status da trilha de desenvolvimento")
             await self.db.rollback()
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao atualizar status da trilha de desenvolvimento: {str(e)}"
+                detail="Erro ao atualizar status da trilha de desenvolvimento"
             )
         
     async def delete_development_trail_service(
@@ -279,9 +256,10 @@ class DevelopmentTrailService:
 
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao deletar trilha de desenvolvimento")
             await self.db.rollback()
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao deletar trilha de desenvolvimento: {str(e)}"
+                detail="Erro ao deletar trilha de desenvolvimento"
             )

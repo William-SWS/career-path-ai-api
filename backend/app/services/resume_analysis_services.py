@@ -11,7 +11,6 @@ from app.repository.resume_analysis_repository import ResumeAnalysisRepository
 from app.core.logging_config import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
-import traceback
 
 
 class ResumeAnalysisService:
@@ -63,10 +62,11 @@ class ResumeAnalysisService:
         except HTTPException:
             await self.db.rollback()
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao processar o currículo")
             await self.db.rollback()
             raise HTTPException(
-                status_code=500, detail=f"Erro ao processar o currículo: {str(e)}"
+                status_code=500, detail="Erro ao processar o currículo"
             )
     
     async def get_resume_analysis_service(
@@ -100,12 +100,11 @@ class ResumeAnalysisService:
         
         except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Erro ao buscar análises: {str(e)}")
-            logger.error(traceback.format_exc())
+        except Exception:
+            logger.exception("Erro ao buscar análises")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao buscar análises: {str(e)}"
+                detail="Erro ao buscar análises"
             )
         
     async def get_resume_analysis_by_id_service(
@@ -135,10 +134,11 @@ class ResumeAnalysisService:
         
         except HTTPException:
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao buscar análise")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao buscar análise: {str(e)}"
+                detail="Erro ao buscar análise"
             )
 
     async def delete_resume_analysis_service(
@@ -171,9 +171,10 @@ class ResumeAnalysisService:
         except HTTPException:
             await self.db.rollback()
             raise
-        except Exception as e:
+        except Exception:
+            logger.exception("Erro ao deletar análise")
             await self.db.rollback()
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao deletar análise: {str(e)}"
+                detail="Erro ao deletar análise"
             )

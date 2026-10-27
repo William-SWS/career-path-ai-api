@@ -2,6 +2,8 @@ from fastapi import UploadFile, HTTPException
 from PyPDF2 import PdfReader
 import io
 
+from app.core.logging_config import logger
+
 
 async def check_pdf(file: UploadFile) -> str:
     try:
@@ -34,8 +36,11 @@ async def check_pdf(file: UploadFile) -> str:
         return text
     except HTTPException:
         raise
-    except Exception as e:
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        logger.exception("Erro ao processar o PDF")
         raise HTTPException(
                 status_code=500,
-                detail=f"Erro interno ao checar o PDF: {str(e)}",
+                detail="Erro interno ao checar o PDF",
             )

@@ -7,7 +7,6 @@ from app.schemas.development_trail_schema import (
     DevelopmentTrailDeleteResponse,
 )
 from app.services.development_trail_services import DevelopmentTrailService
-from app.utils.development_trail_utils import create_adaptive_development_trail_prompt
 from app.models.user import User
 from app.api.v1.dependencies.security import verify_token
 from app.api.v1.dependencies.services import get_development_trail_service
@@ -29,34 +28,6 @@ async def generate_development_trail(
         user_data, current_user
     )
     return development_trail
-
-
-@router.get("/test-prompt")
-async def test_prompt_structure(current_user: User = Depends(verify_token)):
-    """Endpoint para testar a estrutura do prompt (apenas desenvolvimento)"""
-    test_data = DevelopmentTrailRequest(
-        name="João Teste",
-        age=25,
-        education="Graduação em Sistemas de Informação",
-        current_area="Desenvolvedor Júnior",
-        experience_in_years=2,
-        skills=["Python", "Django", "PostgreSQL"],
-        interested_technologies=["Back-End", "DevOps"],
-        current_level="Júnior",
-        professional_goal="Tornar-se Desenvolvedor Pleno",
-        available_time_week="20 horas semanais",
-        goal_timeframe="8 meses",
-        additional_information="Tenho interesse em aprender Docker e AWS",
-    )
-
-    prompt = create_adaptive_development_trail_prompt(test_data)
-
-    return {
-        "prompt_structure": "valid",
-        "prompt_length": len(prompt),
-        "has_user_data": True,
-        "sample_prompt_preview": prompt[:500] + "..." if len(prompt) > 500 else prompt,
-    }
 
 
 @router.get("/", response_model=DevelopmentTrailListResponse)
