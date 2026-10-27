@@ -10,7 +10,7 @@ _TEST_ENV = {
     "POSTGRES_PORT": "5432",
     "POSTGRES_USER": "test",
     "POSTGRES_PASSWORD": "test",
-    "SECRET_KEY": "test-secret-key",
+    "SECRET_KEY": "test-secret-key-with-at-least-32-characters",
     "DEBUG": "false",
     "MAIL_USERNAME": "test",
     "MAIL_PASSWORD": "test",

@@ -32,12 +32,21 @@ POSTGRES_PORT=5433
 POSTGRES_USER=seu_user
 POSTGRES_PASSWORD=sua_senha
 
-SECRET_KEY=sua_secret_key_super_segura_aqui
+SECRET_KEY=<gere uma chave aleatória: veja abaixo>
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 GEMINI_API_KEY=sua_chave_api_gemini_aqui
 ```
+
+> **`SECRET_KEY`** assina os tokens JWT e precisa ter **pelo menos 32 caracteres**; a API não inicia com uma chave menor.
+> Nunca reutilize um valor de exemplo. Gere uma chave aleatória com:
+>
+> ```bash
+> python -c "import secrets; print(secrets.token_urlsafe(48))"
+> ```
+>
+> Se você trocar a chave, as sessões existentes deixam de valer e é preciso entrar de novo.
 
 #### 4. Execute a aplicação
 ```bash
@@ -125,7 +134,7 @@ POSTGRES_USER=seu_user
 POSTGRES_PASSWORD=sua_senha
 
 DEBUG=False
-SECRET_KEY=sua_secret_key_super_segura_aqui
+SECRET_KEY=<gere uma chave aleatória: veja abaixo>
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 

@@ -2,6 +2,34 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.schemas.base_schema import BaseMessageResponse
 import re
 
+# O bcrypt só usa os primeiros 72 bytes: o que vier depois seria ignorado em silêncio.
+BCRYPT_MAX_PASSWORD_BYTES = 72
+
+
+def validate_new_password(pwd: str) -> str:
+    """Regras de senha para cadastro e reset (o login não usa: não pode trancar quem já tem conta)."""
+    erros = []
+
+    if len(pwd) < 8:
+        erros.append("no mínimo 8 caracteres")
+    if not any(c.isupper() for c in pwd):
+        erros.append("uma letra maiúscula")
+    if not any(c.islower() for c in pwd):
+        erros.append("uma letra minúscula")
+    if not any(c.isdigit() for c in pwd):
+        erros.append("um número")
+
+    if erros:
+        raise ValueError("A senha deve conter " + ", ".join(erros) + ".")
+
+    if len(pwd.encode()) > BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError(
+            f"A senha deve ter no máximo {BCRYPT_MAX_PASSWORD_BYTES} bytes "
+            "(caracteres acentuados ocupam mais de um byte)."
+        )
+
+    return pwd
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -32,22 +60,7 @@ class RegisterRequest(BaseModel):
 
     @field_validator("password")
     def validate_password(cls, pwd):
-        erros = []
-
-        if len(pwd) < 8:
-            erros.append("no mínimo 8 caracteres")
-        if not any(c.isupper() for c in pwd):
-            erros.append("uma letra maiúscula")
-        if not any(c.islower() for c in pwd):
-            erros.append("uma letra minúscula")
-        if not any(c.isdigit() for c in pwd):
-            erros.append("um número")
-
-        if erros:
-            msg = "A senha deve conter " + ", ".join(erros) + "."
-            raise ValueError(msg)
-
-        return pwd
+        return validate_new_password(pwd)
 
     class Config:
         from_attributes = True
@@ -100,22 +113,7 @@ class ResetPasswordRequest(BaseModel):
 
     @field_validator("new_password")
     def validate_password(cls, pwd):
-        erros = []
-
-        if len(pwd) < 8:
-            erros.append("no mínimo 8 caracteres")
-        if not any(c.isupper() for c in pwd):
-            erros.append("uma letra maiúscula")
-        if not any(c.islower() for c in pwd):
-            erros.append("uma letra minúscula")
-        if not any(c.isdigit() for c in pwd):
-            erros.append("um número")
-
-        if erros:
-            msg = "A senha deve conter " + ", ".join(erros) + "."
-            raise ValueError(msg)
-
-        return pwd
+        return validate_new_password(pwd)
     
     class Config:
         from_attributes = True
