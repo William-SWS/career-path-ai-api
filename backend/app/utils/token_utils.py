@@ -28,6 +28,14 @@ def decode_jwt_token(token: str, expected_type: TokenType) -> dict:
     return payload
 
 
+def get_token_subject(token: str, expected_type: TokenType) -> Optional[str]:
+    """Subject do token, ou None se ele for inválido, expirado ou de outro tipo."""
+    try:
+        return decode_jwt_token(token, expected_type).get("sub")
+    except JWTError:
+        return None
+
+
 def create_reset_password_token(email: str) -> str:
     """
     Cria um token JWT para reset de senha
@@ -53,7 +61,4 @@ def verify_reset_password_token(token: str) -> Optional[str]:
     Verifica e decodifica um token de reset de senha
     Retorna o email se o token for válido, None caso contrário
     """
-    try:
-        return decode_jwt_token(token, TokenType.RESET_PASSWORD).get("sub")
-    except JWTError:
-        return None
+    return get_token_subject(token, TokenType.RESET_PASSWORD)

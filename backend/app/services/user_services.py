@@ -12,9 +12,10 @@ from app.core.security import (
     add_token_to_blacklist,
     bcrypt_context,
     create_token,
+    is_token_blacklisted,
 )
 from app.core.email import send_password_reset_email
-from app.utils.token_utils import verify_reset_password_token
+from app.utils.token_utils import get_token_subject, verify_reset_password_token
 from app.schemas.user_schema import (
     UserUpdateRequest,
     UserUpdateResponse,
@@ -99,8 +100,26 @@ class UserService:
         access_token = create_token(user.id)
         return RefreshTokenResponse(access_token=access_token, token_type="Bearer")
 
-    async def logout(self, token: str) -> MessageResponse:
-        await add_token_to_blacklist(token, self.db)
+    async def logout(
+        self, access_token: str, current_user: User, refresh_token: str | None = None
+    ) -> MessageResponse:
+        """Revoga o access token e, se enviado, o refresh token, na mesma transação."""
+        revoke_refresh = False
+
+        if refresh_token:
+            subject = get_token_subject(refresh_token, TokenType.REFRESH)
+            # Inválido, expirado ou de outro tipo: não há sessão a revogar.
+            if subject is not None:
+                if subject != str(current_user.id):
+                    raise ValidationException(
+                        "O refresh token não pertence ao usuário autenticado",
+                        code="refresh_token_mismatch",
+                    )
+                revoke_refresh = not await is_token_blacklisted(refresh_token, self.db)
+
+        await add_token_to_blacklist(access_token, self.db)
+        if revoke_refresh:
+            await add_token_to_blacklist(refresh_token, self.db)
         await self.db.commit()
 
         return MessageResponse(message="Logout realizado com sucesso")

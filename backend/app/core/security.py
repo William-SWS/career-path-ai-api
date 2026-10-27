@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from enum import Enum
+import uuid
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -34,6 +35,7 @@ def create_token(
     dict_info = {
         "sub": str(user_id),
         "type": token_type.value,
+        "jti": uuid.uuid4().hex,  # token único: a blacklist guarda a string inteira
         "exp": datetime.now(timezone.utc) + token_duration,
     }
     encoded_jwt = jwt.encode(dict_info, settings.SECRET_KEY, settings.ALGORITHM)

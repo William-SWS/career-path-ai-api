@@ -9,6 +9,7 @@ from app.schemas.auth_schema import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
     LoginResponse,
+    LogoutRequest,
 )
 from app.api.v1.dependencies.security import oauth2_scheme, verify_token, verify_refresh_token
 from app.models.user import User
@@ -55,14 +56,16 @@ async def use_refresh_token(
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(
+    logout_data: LogoutRequest | None = None,
     token: str = Depends(oauth2_scheme),
     current_user: User = Depends(verify_token),
     user_service: UserService = Depends(get_user_service)
 ):
     """
-    Faz logout do usuário adicionando o token à blacklist
+    Faz logout adicionando o access token (e o refresh token, se enviado) à blacklist
     """
-    return await user_service.logout(token)
+    refresh_token = logout_data.refresh_token if logout_data else None
+    return await user_service.logout(token, current_user, refresh_token)
 
 
 @router.post("/forgot-password", response_model=MessageResponse)

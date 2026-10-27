@@ -102,3 +102,10 @@ def test_refresh_endpoint_rejects_anything_but_a_valid_refresh_token(client, tok
 
 def test_refresh_endpoint_requires_a_token(client):
     assert client.post(f"{API}/auth/refresh").status_code == 401
+
+
+def test_every_token_is_unique_even_when_issued_in_the_same_second():
+    # Sem jti, dois logins no mesmo segundo gerariam a mesma string, e revogar
+    # um token (a blacklist guarda a string) revogaria o outro.
+    assert create_token(1) != create_token(1)
+    assert create_token(1, TokenType.REFRESH) != create_token(1, TokenType.REFRESH)

@@ -91,3 +91,38 @@ def test_token_of_a_deleted_user_is_rejected(http, session_tokens):
 
     assert deleted.status_code == 200
     assert http.get(f"{API}/users/me", headers=bearer(access)).status_code == 401
+
+
+def logout(http, tokens, **body):
+    return http.post(f"{API}/auth/logout", headers=bearer(tokens["access_token"]), json=body or None)
+
+
+def test_logout_with_refresh_token_ends_the_whole_session(http, session_tokens):
+    assert logout(http, session_tokens, refresh_token=session_tokens["refresh_token"]).status_code == 200
+
+    renewed = http.post(f"{API}/auth/refresh", headers=bearer(session_tokens["refresh_token"]))
+    assert renewed.status_code == 401
+
+
+def test_logout_without_refresh_token_still_works_for_old_clients(http, session_tokens):
+    assert logout(http, session_tokens).status_code == 200
+
+
+def test_revoking_the_same_refresh_token_twice_is_not_an_error(http, session_tokens):
+    refresh = session_tokens["refresh_token"]
+    assert logout(http, session_tokens, refresh_token=refresh).status_code == 200
+
+    second_login = http.post(f"{API}/auth/login", json=CREDENTIALS).json()["tokens"]
+    assert logout(http, second_login, refresh_token=refresh).status_code == 200
+
+
+def test_logout_rejects_a_refresh_token_of_another_user(http, session_tokens):
+    http.post(f"{API}/auth/register", json={"name": "Ana Souza", "email": "ana@example.com", "password": "Abcdef12"})
+    other = http.post(f"{API}/auth/login", json={"email": "ana@example.com", "password": "Abcdef12"}).json()["tokens"]
+
+    response = logout(http, session_tokens, refresh_token=other["refresh_token"])
+
+    assert response.status_code == 400
+    # nada foi revogado: o access token ainda vale e a sessão da Ana segue renovável
+    assert http.get(f"{API}/users/me", headers=bearer(session_tokens["access_token"])).status_code == 200
+    assert http.post(f"{API}/auth/refresh", headers=bearer(other["refresh_token"])).status_code == 200

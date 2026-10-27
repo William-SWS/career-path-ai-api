@@ -74,7 +74,7 @@ def test_logout_really_blacklists_the_token():
             async with sessions() as session, sessions() as reader:
                 token = create_token(1)
 
-                await UserService(session).logout(token)
+                await UserService(session).logout(token, SimpleNamespace(id=1))
 
                 assert await is_token_blacklisted(token, reader)
 

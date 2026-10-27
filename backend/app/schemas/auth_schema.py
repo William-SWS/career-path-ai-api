@@ -81,6 +81,10 @@ class LoginResponse(BaseModel):
     tokens: TokenResponse
 
 
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
+
+
 class RefreshTokenResponse(BaseModel):
     access_token: str
     token_type: str

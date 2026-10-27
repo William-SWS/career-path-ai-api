@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -21,7 +21,8 @@ from app.schemas.auth_schema import (
 )
 from app.schemas.user_schema import UserDeleteRequest, UserUpdateRequest
 from app.services.user_services import UserService
-from app.core.security import create_token
+from app.core.security import TokenType, create_token
+from app.services import user_services
 from app.utils.token_utils import create_reset_password_token
 from tests.fakes import FakeSession
 
@@ -215,7 +216,7 @@ def test_successful_writes_commit_exactly_once():
         "delete": lambda s: s.delete_user(UserDeleteRequest(password=PASSWORD), me),
         "reset": lambda s: s.reset_user_password(
             ResetPasswordRequest(reset_token=reset_token, new_password="Newpass12")),
-        "logout": lambda s: s.logout(create_token(me.id)),
+        "logout": lambda s: s.logout(create_token(me.id), me),
     }
 
     for name, call in calls.items():
@@ -252,7 +253,7 @@ def test_logout_blacklists_the_token_it_received():
     service = make_service(make_user())
     token = create_token(1)
 
-    run(service.logout(token))
+    run(service.logout(token, make_user()))
 
     assert [entry.token for entry in service.db.added] == [token]
 
@@ -261,4 +262,86 @@ def test_logout_does_not_report_success_when_the_blacklist_write_fails():
     service = make_service(make_user(), session=FakeSession(commit_error=RuntimeError("db down")))
 
     with pytest.raises(RuntimeError):
-        run(service.logout(create_token(1)))
+        run(service.logout(create_token(1), make_user()))
+
+
+# ---------- logout revoga access e refresh token na mesma transação
+
+def stub_blacklist(monkeypatch, already_revoked=()):
+    async def is_blacklisted(token, db):
+        return token in already_revoked
+
+    monkeypatch.setattr(user_services, "is_token_blacklisted", is_blacklisted)
+
+
+def revoked(service):
+    return [entry.token for entry in service.db.added]
+
+
+def test_logout_revokes_access_and_refresh_token_in_one_commit(monkeypatch):
+    stub_blacklist(monkeypatch)
+    me = make_user()
+    access, refresh = create_token(me.id), create_token(me.id, TokenType.REFRESH)
+    service = make_service(me)
+
+    run(service.logout(access, me, refresh))
+
+    assert revoked(service) == [access, refresh]
+    assert service.db.commits == 1
+
+
+def test_logout_without_refresh_token_revokes_only_the_access_token(monkeypatch):
+    stub_blacklist(monkeypatch)
+    me = make_user()
+    access = create_token(me.id)
+    service = make_service(me)
+
+    run(service.logout(access, me))
+
+    assert revoked(service) == [access]
+
+
+@pytest.mark.parametrize(
+    "unusable",
+    [
+        create_token(1, TokenType.REFRESH, token_duration=timedelta(seconds=-5)),
+        create_token(1),  # access token enviado no lugar do refresh
+        "garbage",
+    ],
+    ids=["expired", "wrong-type", "garbage"],
+)
+def test_logout_succeeds_when_the_refresh_token_has_nothing_to_revoke(monkeypatch, unusable):
+    stub_blacklist(monkeypatch)
+    me = make_user()
+    access = create_token(me.id)
+    service = make_service(me)
+
+    run(service.logout(access, me, unusable))
+
+    assert revoked(service) == [access]
+    assert service.db.commits == 1
+
+
+def test_logout_is_idempotent_for_an_already_revoked_refresh_token(monkeypatch):
+    me = make_user()
+    access, refresh = create_token(me.id), create_token(me.id, TokenType.REFRESH)
+    stub_blacklist(monkeypatch, already_revoked={refresh})
+    service = make_service(me)
+
+    run(service.logout(access, me, refresh))
+
+    assert revoked(service) == [access]
+
+
+def test_logout_rejects_a_refresh_token_of_another_user_and_revokes_nothing(monkeypatch):
+    stub_blacklist(monkeypatch)
+    me = make_user(id=1)
+    someone_elses = create_token(2, TokenType.REFRESH)
+    service = make_service(me)
+
+    with pytest.raises(ValidationException) as exc_info:
+        run(service.logout(create_token(1), me, someone_elses))
+
+    assert exc_info.value.code == "refresh_token_mismatch"
+    assert revoked(service) == []
+    assert service.db.commits == 0
