@@ -8,13 +8,13 @@ class Base(DeclarativeBase):
 
 # Engine assincrono (para FastAPI)
 async_engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.DATABASE_URI,
     echo=settings.DEBUG,
 )
 
 # Engine sincrono (para APScheduler)
 sync_engine = create_engine(
-    settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://"),
+    settings.DATABASE_URI.replace("postgresql+asyncpg://", "postgresql://"),
     echo=settings.DEBUG,
 )
 

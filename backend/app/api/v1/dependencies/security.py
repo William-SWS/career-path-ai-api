@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
+from app.core.config import settings
 from app.core.security import is_token_blacklisted
 from app.api.v1.dependencies.database import get_db
 from app.utils.token_utils import decode_jwt_token
@@ -10,7 +11,7 @@ from jose import JWTError
 from typing import Optional
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login-form")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login-form")
 
 
 async def verify_token(

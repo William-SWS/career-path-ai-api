@@ -5,7 +5,7 @@ from app.services.interview_guide_services import InterviewGuideService
 from app.schemas.interview_guide_schema import InterviewGuideResponse, InterviewGuideListResponse, InterviewGuideDeleteResponse
 from app.api.v1.dependencies.services import get_interview_guide_service
 
-router = APIRouter(prefix="/api/v1/interview-guide", tags=["interview-guide"])
+router = APIRouter()
 
 
 @router.post("/", response_model=InterviewGuideResponse)

@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title=settings.APP_NAME,
     description="CareerPath-AI Swagger",
     version="1.0.0",
     debug=settings.DEBUG,

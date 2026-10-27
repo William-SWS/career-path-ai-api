@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 import google.generativeai as genai
 
-router = APIRouter(prefix="/api/v1/check", tags=["check"])
+router = APIRouter()
 
 @router.get("/models")
 async def list_models():

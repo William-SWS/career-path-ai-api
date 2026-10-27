@@ -16,7 +16,7 @@ from app.services.user_services import UserService
 from app.api.v1.dependencies.services import get_user_service
 
 
-router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+router = APIRouter()
 
 
 @router.post("/register", response_model=MessageResponse, status_code=201)

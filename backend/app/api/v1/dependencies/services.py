@@ -1,6 +1,6 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies.database import get_db
+from app.core.database import get_db
 from app.services.user_services import UserService
 from app.services.resume_analysis_services import ResumeAnalysisService
 from app.services.interview_guide_services import InterviewGuideService

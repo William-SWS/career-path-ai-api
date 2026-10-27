@@ -7,15 +7,15 @@ class Settings(BaseSettings):
 
     # App
     API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "Career-Path-AI API"
+    APP_NAME: str = "Career-Path-AI"
     FRONTEND_HOST: str
 
     # Database Configuration
-    POSTGRES_DB = str
-    POSTGRES_HOST = str
-    POSTGRES_PORT = str
-    POSTGRES_USER = str
-    POSTGRES_PASSWORD = str
+    POSTGRES_DB: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
 
     @property
     def DATABASE_URI(self) -> str:
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     MAIL_SSL_TLS: bool = False
     USE_CREDENTIALS: bool = True
 
-    RESET_PASSWORD_TOKEN_EXPIRE_HOURS = 1
+    RESET_PASSWORD_TOKEN_EXPIRE_HOURS: int = 1
 
     # Gemini
     GEMINI_API_KEY: str

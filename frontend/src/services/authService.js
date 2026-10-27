@@ -126,7 +126,7 @@ export async function uploadResume(file) {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_URL}/api/v1/analyze-resume/`, {
+  const response = await fetch(`${API_URL}/api/v1/resume-analysis/`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -331,7 +331,7 @@ export async function getTotalAnalyzeResume() {
     throw new Error('Token de autenticação não encontrado');
   }
 
-  const response = await fetch(`${API_URL}/api/v1/analyze-resume/?skip=0&limit=1`, {
+  const response = await fetch(`${API_URL}/api/v1/resume-analysis/?skip=0&limit=1`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -413,7 +413,7 @@ export async function analyzeResume(file) {
   const formData = new FormData();
   formData.append('file', file);  // nome esperado pelo backend (alterar se necessário)
 
-  const response = await fetch(`${API_URL}/api/v1/analyze-resume/`, {
+  const response = await fetch(`${API_URL}/api/v1/resume-analysis/`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -524,7 +524,7 @@ export async function getResumeAnalysisById(analysisId) {
     throw new Error('Token de autenticação não encontrado');
   }
 
-  const response = await fetch(`${API_URL}/api/v1/analyze-resume/${analysisId}`, {
+  const response = await fetch(`${API_URL}/api/v1/resume-analysis/${analysisId}`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -545,7 +545,7 @@ export async function getResumeAnalyses(skip = 0, limit = 100) {
     throw new Error('Token de autenticação não encontrado');
   }
 
-  const response = await fetch(`${API_URL}/api/v1/analyze-resume/?skip=${skip}&limit=${limit}`, {
+  const response = await fetch(`${API_URL}/api/v1/resume-analysis/?skip=${skip}&limit=${limit}`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -583,7 +583,7 @@ export async function deleteResumeAnalysis(analysisId) {
     throw new Error('Token de autenticação não encontrado');
   }
 
-  const response = await fetch(`${API_URL}/api/v1/analyze-resume/${analysisId}`, {
+  const response = await fetch(`${API_URL}/api/v1/resume-analysis/${analysisId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,
