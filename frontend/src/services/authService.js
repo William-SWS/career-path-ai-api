@@ -580,11 +580,16 @@ export async function logout() {
     throw new Error('Token de autenticação não encontrado');
   }
 
+  // Envia também o refresh token para o backend revogar a sessão inteira
+  const refreshToken = localStorage.getItem('refresh_token');
+
   const response = await fetch(`${API_URL}/api/v1/auth/logout`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ refresh_token: refreshToken }),
   });
 
   if (!response.ok) {
