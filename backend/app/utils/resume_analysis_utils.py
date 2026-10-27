@@ -1,4 +1,5 @@
 from app.core.config import settings
+from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
 import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
@@ -107,7 +108,9 @@ async def analyze_with_gemini(resume_text: str) -> dict:
     """Analisa o currículo usando Google Gemini"""
 
     if not settings.GEMINI_API_KEY:
-        raise ValueError("Serviço de IA indisponível no momento")
+        raise ExternalServiceException(
+            "Serviço de IA indisponível no momento", code="ai_unavailable"
+        )
 
     genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -172,10 +175,20 @@ async def analyze_with_gemini(resume_text: str) -> dict:
 
     except google_exceptions.ResourceExhausted:
         logger.exception("Quota da API do Gemini excedida ao analisar currículo")
-        raise ValueError(
-            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos."
+        raise RateLimitException(
+            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos.",
+            code="ai_quota_exceeded",
         )
 
-    except Exception:
-        logger.exception("Erro ao analisar currículo")
-        raise ValueError("Erro ao analisar currículo")
+    except google_exceptions.GoogleAPIError:
+        logger.exception("Falha na API do Gemini ao analisar currículo")
+        raise ExternalServiceException(
+            "Serviço de IA indisponível no momento", code="ai_provider_error"
+        )
+
+    except (ValueError, IndexError):
+        # Resposta bloqueada, sem candidatos ou sem JSON utilizável.
+        logger.exception("Resposta inutilizável do Gemini ao analisar currículo")
+        raise ExternalServiceException(
+            "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
+        )

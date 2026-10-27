@@ -1,4 +1,3 @@
-from fastapi import HTTPException
 from app.models.token_blacklist import TokenBlacklist
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
@@ -20,11 +19,8 @@ def cleanup_expired_tokens(db: Session) -> int:
 
 
 def decode_jwt_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token é inválido ou está expirado")
+    """Levanta JWTError se o token for inválido ou estiver expirado."""
+    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
 
 
 def create_reset_password_token(email: str) -> str:

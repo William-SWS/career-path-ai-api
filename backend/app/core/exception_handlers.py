@@ -10,12 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 def build_error_response(
-    status_code: int, message: str, code: str, details: list[dict] | None = None
+    status_code: int,
+    message: str,
+    code: str,
+    details: list[dict] | None = None,
+    headers: dict | None = None,
 ):
     error = {"status": status_code, "code": code, "message": message}
     if details:
         error["details"] = details
-    return JSONResponse(status_code=status_code, content={"error": error})
+    return JSONResponse(
+        status_code=status_code, content={"error": error}, headers=headers
+    )
 
 
 def _validation_details(exc: RequestValidationError) -> list[dict]:
@@ -55,6 +61,7 @@ def register_exception_handlers(app):
             status_code=exc.status_code,
             message=str(exc.detail),
             code="http_error",
+            headers=exc.headers,
         )
 
 

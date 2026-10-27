@@ -1,4 +1,5 @@
 from app.core.config import settings
+from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
 import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
@@ -10,7 +11,9 @@ async def generate_interview_guide_with_gemini(resume_text: str, job_description
     """Gera um roteiro de entrevista personalizado usando Google Gemini"""
     
     if not settings.GEMINI_API_KEY:
-        raise ValueError("Serviço de IA indisponível no momento")
+        raise ExternalServiceException(
+            "Serviço de IA indisponível no momento", code="ai_unavailable"
+        )
     
     genai.configure(api_key=settings.GEMINI_API_KEY)
     
@@ -126,13 +129,23 @@ async def generate_interview_guide_with_gemini(resume_text: str, job_description
         
     except google_exceptions.ResourceExhausted:
         logger.exception("Quota da API do Gemini excedida ao gerar guia de entrevista")
-        raise ValueError(
-            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos."
+        raise RateLimitException(
+            "Limite de uso do serviço de IA excedido. Tente novamente em alguns minutos.",
+            code="ai_quota_exceeded",
         )
 
-    except Exception:
-        logger.exception("Erro ao gerar guia de entrevista")
-        raise ValueError("Erro ao gerar guia de entrevista")
+    except google_exceptions.GoogleAPIError:
+        logger.exception("Falha na API do Gemini ao gerar guia de entrevista")
+        raise ExternalServiceException(
+            "Serviço de IA indisponível no momento", code="ai_provider_error"
+        )
+
+    except (ValueError, IndexError):
+        # Resposta bloqueada, sem candidatos ou sem JSON utilizável.
+        logger.exception("Resposta inutilizável do Gemini ao gerar guia de entrevista")
+        raise ExternalServiceException(
+            "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
+        )
 
 
 def extract_interview_json_from_text(text: str) -> dict:

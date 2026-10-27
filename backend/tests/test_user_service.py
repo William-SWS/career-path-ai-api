@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks
 from app.core.exceptions import (
     AuthenticationException,
     ConflictException,
-    EntityNotFoundException,
+    NotFoundException,
     PermissionDeniedException,
     ValidationException,
 )
@@ -192,5 +192,5 @@ def test_reset_password_for_deleted_user_is_not_found():
     service = make_service()
     token = create_reset_password_token("ghost@example.com")
 
-    with pytest.raises(EntityNotFoundException):
+    with pytest.raises(NotFoundException):
         run(service.reset_user_password(ResetPasswordRequest(reset_token=token, new_password="Newpass12")))

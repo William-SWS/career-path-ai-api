@@ -2,7 +2,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.core.exceptions import (
     AuthenticationException,
     ConflictException,
-    EntityNotFoundException,
+    NotFoundException,
     PermissionDeniedException,
     ValidationException,
 )
@@ -140,7 +140,7 @@ class UserService:
         user = await self.user_repository.get_by_id(current_user.id)
 
         if not user:
-            raise EntityNotFoundException("Usuário")
+            raise NotFoundException("Usuário não encontrado", code="user_not_found")
 
         return UserGetResponse(
             email=user.email,
@@ -169,7 +169,7 @@ class UserService:
 
         user = await self.user_repository.get_by_email(email)
         if not user:
-            raise EntityNotFoundException("Usuário")
+            raise NotFoundException("Usuário não encontrado", code="user_not_found")
 
         hashed_password = bcrypt_context.hash(request_data.new_password)
 

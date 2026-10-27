@@ -1,46 +1,40 @@
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 from PyPDF2 import PdfReader
+from PyPDF2.errors import PyPdfError
 import io
 
-from app.core.logging_config import logger
+from app.core.exceptions import ValidationException
 
 
 async def check_pdf(file: UploadFile) -> str:
-    try:
-        if not file.filename.lower().endswith(".pdf"):
-            raise HTTPException(
-                status_code=400,
-                detail="O arquivo deve ser um PDF"
-            )
-        
-        file_contents = await file.read()
+    """Extrai o texto de um PDF enviado; levanta ValidationException se o arquivo for inutilizável."""
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise ValidationException("O arquivo deve ser um PDF", code="invalid_file_type")
 
-        if len(file_contents) == 0:
-            raise ValueError("O arquivo está vazio")
-        
-        pdf_file = io.BytesIO(file_contents)
-        reader = PdfReader(pdf_file)
+    file_contents = await file.read()
+
+    if len(file_contents) == 0:
+        raise ValidationException("O arquivo está vazio", code="empty_file")
+
+    try:
+        reader = PdfReader(io.BytesIO(file_contents))
 
         if reader.is_encrypted:
-            raise ValueError("PDF criptografado não é suportado")
-        
-        text = ""
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-
-        if not text.strip():
-            raise ValueError("Nenhum texto foi encontrado no PDF")
-        
-        return text
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        logger.exception("Erro ao processar o PDF")
-        raise HTTPException(
-                status_code=500,
-                detail="Erro interno ao checar o PDF",
+            raise ValidationException(
+                "PDF criptografado não é suportado", code="encrypted_pdf"
             )
+
+        text = "".join(
+            f"{page_text}\n"
+            for page_text in (page.extract_text() for page in reader.pages)
+            if page_text
+        )
+    except PyPdfError:
+        raise ValidationException("Não foi possível ler o PDF", code="unreadable_pdf")
+
+    if not text.strip():
+        raise ValidationException(
+            "Nenhum texto foi encontrado no PDF", code="pdf_without_text"
+        )
+
+    return text

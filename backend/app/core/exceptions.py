@@ -38,9 +38,13 @@ class AuthenticationException(AppException):
     default_code = "unauthorized"
 
 
-class EntityNotFoundException(NotFoundException):
-    default_code = "entity_not_found"
+class RateLimitException(AppException):
+    status_code = 429
+    default_code = "rate_limited"
 
-    def __init__(self, entity_name: str):
-        message = f"{entity_name} not found"
-        super().__init__(message)
+
+class ExternalServiceException(AppException):
+    """Falha de um provedor externo (ex.: LLM): indisponível ou resposta inutilizável."""
+
+    status_code = 502
+    default_code = "external_service_error"

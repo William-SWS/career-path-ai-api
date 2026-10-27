@@ -3,7 +3,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.exception_handlers import register_exception_handlers
-from app.core.exceptions import ConflictException
+from app.core.exceptions import (
+    ConflictException,
+    ExternalServiceException,
+    RateLimitException,
+)
 
 SECRET = "postgres://user:s3cr3t@db/internal"
 
@@ -68,3 +72,29 @@ def test_invalid_name_is_reported_per_field_without_echoing_input(client):
     assert response.json()["error"]["details"] == [
         {"field": "name", "message": "Informe nome e sobrenome."}
     ]
+
+
+def test_ai_failures_map_to_429_and_502():
+    app = FastAPI()
+    register_exception_handlers(app)
+
+    @app.get("/quota")
+    async def quota():
+        raise RateLimitException("slow", code="ai_quota_exceeded")
+
+    @app.get("/provider")
+    async def provider():
+        raise ExternalServiceException("down", code="ai_provider_error")
+
+    client = TestClient(app, raise_server_exceptions=False)
+
+    assert client.get("/quota").status_code == 429
+    assert client.get("/provider").status_code == 502
+    assert client.get("/provider").json()["error"]["code"] == "ai_provider_error"
+
+
+def test_http_exception_headers_are_preserved(client):
+    response = client.get("/api/v1/users/me")
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
