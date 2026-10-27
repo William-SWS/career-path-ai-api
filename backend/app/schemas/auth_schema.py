@@ -1,6 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.schemas.base_schema import BaseMessageResponse
-from app.utils.exceptions import WeakPasswordException, InvalidNameException
 import re
 
 
@@ -14,18 +13,18 @@ class RegisterRequest(BaseModel):
         name = name.strip()
 
         if not name:
-            raise InvalidNameException("O nome não pode estar vazio.")
+            raise ValueError("O nome não pode estar vazio.")
 
         # Permitir letras + espaços + acentos
         # Bloqueia números e símbolos
         pattern = r"^[A-Za-zÀ-ÿ ]+$"
         if not re.match(pattern, name):
-            raise InvalidNameException(
+            raise ValueError(
                 "O nome deve conter apenas letras e espaços."
             )
 
         if len(name.split()) < 2:
-            raise InvalidNameException(
+            raise ValueError(
                 "Informe nome e sobrenome."
             )
 
@@ -46,7 +45,7 @@ class RegisterRequest(BaseModel):
 
         if erros:
             msg = "A senha deve conter " + ", ".join(erros) + "."
-            raise WeakPasswordException(msg)
+            raise ValueError(msg)
 
         return pwd
 
@@ -110,7 +109,7 @@ class ResetPasswordRequest(BaseModel):
 
         if erros:
             msg = "A senha deve conter " + ", ".join(erros) + "."
-            raise WeakPasswordException(msg)
+            raise ValueError(msg)
 
         return pwd
     

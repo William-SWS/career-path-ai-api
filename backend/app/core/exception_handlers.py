@@ -9,17 +9,24 @@ from app.core.exceptions import AppException
 logger = logging.getLogger(__name__)
 
 
-def build_error_response(status_code: int, message: str, code: str):
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "error": {
-                "status": status_code,
-                "code": code,
-                "message": message,
-            }
-        },
-    )
+def build_error_response(
+    status_code: int, message: str, code: str, details: list[dict] | None = None
+):
+    error = {"status": status_code, "code": code, "message": message}
+    if details:
+        error["details"] = details
+    return JSONResponse(status_code=status_code, content={"error": error})
+
+
+def _validation_details(exc: RequestValidationError) -> list[dict]:
+    """Um item por campo inválido, sem expor o input recebido."""
+    return [
+        {
+            "field": ".".join(str(part) for part in error["loc"][1:]),
+            "message": error["msg"].removeprefix("Value error, "),
+        }
+        for error in exc.errors()
+    ]
 
 
 def register_exception_handlers(app):
@@ -38,6 +45,7 @@ def register_exception_handlers(app):
             status_code=422,
             message="Request validation error",
             code="request_validation_error",
+            details=_validation_details(exc),
         )
 
 
@@ -52,7 +60,7 @@ def register_exception_handlers(app):
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):
-        logger.exception("Unhandled exception: %s", exc_info=exc)
+        logger.exception("Unhandled exception", exc_info=exc)
         return build_error_response(
             status_code=500,
             message="Internal server error",

@@ -1,7 +1,12 @@
-from fastapi import HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
+from app.core.exceptions import (
+    AuthenticationException,
+    ConflictException,
+    EntityNotFoundException,
+    PermissionDeniedException,
+    ValidationException,
+)
 from app.models.user import User
-from app.core.logging_config import logger
 from app.core.security import bcrypt_context, create_token, add_token_to_blacklist
 from app.core.email import send_password_reset_email
 from app.utils.token_utils import verify_reset_password_token
@@ -35,36 +40,24 @@ class UserService:
     async def create_user_account(
         self, user_data: RegisterRequest
     ) -> MessageResponse:
-        try:
-            if await self.user_repository.email_exists(user_data.email):
-                raise HTTPException(status_code=400, detail="Esse email já está em uso")
+        if await self.user_repository.email_exists(user_data.email):
+            raise ConflictException("Esse email já está em uso", code="email_already_registered")
 
-            crypted_password = bcrypt_context.hash(user_data.password)
+        crypted_password = bcrypt_context.hash(user_data.password)
 
-            await self.user_repository.create(
-                name=user_data.name,
-                email=user_data.email,
-                password_hash=crypted_password,
-            )
+        await self.user_repository.create(
+            name=user_data.name,
+            email=user_data.email,
+            password_hash=crypted_password,
+        )
 
-            return MessageResponse(message="Usuário criado com sucesso")
-
-        except HTTPException:
-            raise
-        except Exception:
-            logger.exception("Erro interno ao criar usuário")
-            raise HTTPException(
-                status_code=500, detail="Erro interno ao criar usuário"
-            )
+        return MessageResponse(message="Usuário criado com sucesso")
 
     async def authenticate_user(self, email: str, password: str) -> User:
         user = await self.user_repository.get_by_email(email)
 
         if not user or not bcrypt_context.verify(password, user.password_hash):
-            raise HTTPException(
-                status_code=400,
-                detail="Credenciais inválidas",
-            )
+            raise AuthenticationException("Credenciais inválidas", code="invalid_credentials")
 
         return user
 
@@ -101,14 +94,7 @@ class UserService:
         access_token = create_token(user.id)
         return RefreshTokenResponse(access_token=access_token, token_type="Bearer")
 
-    async def logout(self, request: Request, current_user: User) -> MessageResponse:
-        authorization = request.headers.get("Authorization")
-        if not authorization or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Token inválido")
-
-        token = authorization.replace("Bearer ", "")
-
-        # Note: add_token_to_blacklist precisa ser adaptado para usar repository
+    async def logout(self, token: str) -> MessageResponse:
         await add_token_to_blacklist(token, self.db)
 
         return MessageResponse(message="Logout realizado com sucesso")
@@ -116,113 +102,77 @@ class UserService:
     async def update_user(
         self, user_data: UserUpdateRequest, current_user: User
     ) -> UserUpdateResponse:
-        try:
-            if not any([user_data.name, user_data.email]):
-                raise HTTPException(
-                    status_code=400, detail="Pelo menos um campo deve ser fornecido"
-                )
-
-            email_exists = await self.user_repository.get_by_email(user_data.email)
-            if email_exists:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Erro ao atualizar o email"
-                )
-            
-            updated_data = user_data.model_dump(exclude_unset=True, exclude_none=True)
-
-            updated_user = await self.user_repository.update(
-                current_user.id, **updated_data
+        if not any([user_data.name, user_data.email]):
+            raise ValidationException(
+                "Pelo menos um campo deve ser fornecido", code="no_fields_to_update"
             )
 
-            return UserUpdateResponse(
-                id=updated_user.id,
-                name=updated_user.name,
-                email=updated_user.email,
-                updated_at=updated_user.updated_at,
-            )
-        except HTTPException:
-            raise
+        if user_data.email and user_data.email != current_user.email:
+            if await self.user_repository.email_exists(user_data.email):
+                raise ConflictException("Esse email já está em uso", code="email_already_registered")
+
+        updated_data = user_data.model_dump(exclude_unset=True, exclude_none=True)
+
+        updated_user = await self.user_repository.update(
+            current_user.id, **updated_data
+        )
+
+        return UserUpdateResponse(
+            id=updated_user.id,
+            name=updated_user.name,
+            email=updated_user.email,
+            updated_at=updated_user.updated_at,
+        )
 
     async def delete_user(
         self, user_data: UserDeleteRequest, current_user: User
     ) -> MessageResponse:
-        try:
-            if not bcrypt_context.verify(
-                user_data.password, current_user.password_hash
-            ):
-                raise HTTPException(status_code=400, detail="Senha incorreta")
+        # 403 e não 401: a sessão é válida, só a confirmação falhou. Um 401 faria
+        # o frontend tentar renovar o token e deslogar o usuário.
+        if not bcrypt_context.verify(user_data.password, current_user.password_hash):
+            raise PermissionDeniedException("Senha incorreta", code="invalid_password")
 
-            await self.user_repository.delete(current_user.id)
+        await self.user_repository.delete(current_user.id)
 
-            return MessageResponse(message="Usuário deletado com sucesso")
-        except HTTPException:
-            raise
-        except Exception:
-            logger.exception("Erro interno no servidor")
-            raise HTTPException(
-                status_code=500, detail="Erro interno no servidor"
-            )
+        return MessageResponse(message="Usuário deletado com sucesso")
 
     async def retrieve_user_data(self, current_user: User) -> UserGetResponse:
-        try:
-            user = await self.user_repository.get_by_id(current_user.id)
+        user = await self.user_repository.get_by_id(current_user.id)
 
-            if not user:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Usuário não encontrado"
-                )
-            
-            return UserGetResponse(
-                email=user.email,
-                name=user.name,
-                created_at=user.created_at
-            )
-        except HTTPException:
-            raise
-        except Exception:
-            logger.exception("Erro interno no servidor")
-            raise HTTPException(
-                status_code=500, detail="Erro interno no servidor"
-            )
-    
+        if not user:
+            raise EntityNotFoundException("Usuário")
+
+        return UserGetResponse(
+            email=user.email,
+            name=user.name,
+            created_at=user.created_at
+        )
+
     async def forgot_user_password(self, request_data: ForgotPasswordRequest, background_tasks) -> MessageResponse:
         """
         Recebe o email, busca usuário e envia email com token
         """
-        try:
-            user = await self.user_repository.get_by_email(request_data.email)
-            if not user:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Erro ao gerar link para resetar senha"
-                )
-            
-            await send_password_reset_email(user, background_tasks)
+        user = await self.user_repository.get_by_email(request_data.email)
+        if not user:
+            raise ValidationException(
+                "Erro ao gerar link para resetar senha", code="password_reset_unavailable"
+            )
 
-            return MessageResponse(message="Se o email existir, enviaremos instruções de reset")
-        except HTTPException:
-            raise
+        await send_password_reset_email(user, background_tasks)
+
+        return MessageResponse(message="Se o email existir, enviaremos instruções de reset")
 
     async def reset_user_password(self, request_data: ResetPasswordRequest) -> MessageResponse:
-        try:
-            email = verify_reset_password_token(request_data.reset_token)
-            if not email:
-                raise HTTPException(status_code=400, detail="Token inválido ou expirado")
+        email = verify_reset_password_token(request_data.reset_token)
+        if not email:
+            raise ValidationException("Token inválido ou expirado", code="invalid_reset_token")
 
-            user = await self.user_repository.get_by_email(email)
-            if not user:
-                raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        user = await self.user_repository.get_by_email(email)
+        if not user:
+            raise EntityNotFoundException("Usuário")
 
-            hashed_password = bcrypt_context.hash(request_data.new_password)
+        hashed_password = bcrypt_context.hash(request_data.new_password)
 
-            await self.user_repository.update_password(user.id, hashed_password)
+        await self.user_repository.update_password(user.id, hashed_password)
 
-            return MessageResponse(message="Senha resetada com sucesso")
-        except HTTPException:
-            raise
-        except Exception:
-            logger.exception("Erro interno ao resetar senha")
-            raise HTTPException(status_code=500, detail="Erro interno ao resetar senha")
-
+        return MessageResponse(message="Senha resetada com sucesso")

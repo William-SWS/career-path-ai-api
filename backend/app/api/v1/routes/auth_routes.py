@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from app.schemas.auth_schema import (
     RegisterRequest,
@@ -10,7 +10,7 @@ from app.schemas.auth_schema import (
     ResetPasswordRequest,
     LoginResponse,
 )
-from app.api.v1.dependencies.security import verify_token, verify_refresh_token
+from app.api.v1.dependencies.security import oauth2_scheme, verify_token, verify_refresh_token
 from app.models.user import User
 from app.services.user_services import UserService
 from app.api.v1.dependencies.services import get_user_service
@@ -55,14 +55,14 @@ async def use_refresh_token(
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(
-    request: Request,
+    token: str = Depends(oauth2_scheme),
     current_user: User = Depends(verify_token),
     user_service: UserService = Depends(get_user_service)
 ):
     """
     Faz logout do usuário adicionando o token à blacklist
     """
-    return await user_service.logout(request, current_user)
+    return await user_service.logout(token)
 
 
 @router.post("/forgot-password", response_model=MessageResponse)

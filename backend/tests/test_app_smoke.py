@@ -23,13 +23,9 @@ def test_invalid_body_returns_validation_error_envelope(client):
     response = client.post(f"{API}/auth/login", json={})
 
     assert response.status_code == 422
-    assert response.json() == {
-        "error": {
-            "status": 422,
-            "code": "request_validation_error",
-            "message": "Request validation error",
-        }
-    }
+    error = response.json()["error"]
+    assert error["code"] == "request_validation_error"
+    assert {detail["field"] for detail in error["details"]} == {"email", "password"}
 
 
 EXPECTED_ROUTES = {
@@ -68,3 +64,7 @@ def test_protected_routes_reject_missing_token(client, path):
     response = client.get(f"{API}{path}")
 
     assert response.status_code == 401
+
+
+def test_logout_rejects_missing_token(client):
+    assert client.post(f"{API}/auth/logout").status_code == 401

@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime
 from app.schemas.base_schema import BaseMessageResponse
-from app.utils.exceptions import InvalidNameException
 import re
 
 
@@ -21,14 +20,14 @@ class UserUpdateRequest(BaseModel):
         name = name.strip()
 
         if not name:
-            raise InvalidNameException("O nome não pode estar vazio.")
+            raise ValueError("O nome não pode estar vazio.")
 
         pattern = r"^[A-Za-zÀ-ÿ ]+$"
         if not re.match(pattern, name):
-            raise InvalidNameException("O nome deve conter apenas letras e espaços.")
+            raise ValueError("O nome deve conter apenas letras e espaços.")
 
         if len(name.split()) < 2:
-            raise InvalidNameException("Informe nome e sobrenome.")
+            raise ValueError("Informe nome e sobrenome.")
 
         return name
 

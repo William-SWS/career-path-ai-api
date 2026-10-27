@@ -7,9 +7,7 @@ import pytest
 from fastapi import BackgroundTasks, HTTPException, UploadFile
 
 from app.core.email import send_password_reset_email
-from app.schemas.auth_schema import RegisterRequest
 from app.services.development_trail_services import DevelopmentTrailService
-from app.services.user_services import UserService
 from app.utils.pdf_utils import check_pdf
 
 SECRET = "postgres://user:s3cr3t@db/internal"
@@ -50,18 +48,6 @@ def test_service_hides_unexpected_error_details():
         asyncio.run(
             service.get_development_trail_by_id_service(1, SimpleNamespace(id=1))
         )
-
-    assert exc_info.value.status_code == 500
-    assert SECRET not in str(exc_info.value.detail)
-
-
-def test_user_service_hides_unexpected_error_details():
-    service = UserService(db=None)
-    service.user_repository = _ExplodingRepository()
-    data = RegisterRequest(name="Maria Silva", email="m@example.com", password="Abcdef1!")
-
-    with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(service.create_user_account(data))
 
     assert exc_info.value.status_code == 500
     assert SECRET not in str(exc_info.value.detail)
