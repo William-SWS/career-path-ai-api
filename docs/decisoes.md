@@ -109,3 +109,20 @@ Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), *
 **Escolha.** Guardar só o `jti` (identificador único que todo token já tinha) com a expiração, `NOT NULL` e índice único. Revogar um token inválido ou expirado é um no-op, porque a validação já o recusa antes da consulta.
 
 **Migration.** Descarta as linhas existentes: o `jti` só sairia decodificando cada token, e eles expiram em até 7 dias. O efeito é que tokens revogados antes da migration voltam a valer até expirar; aceitável aqui porque não havia ambiente com dados a preservar. Num ambiente real, o certo seria decodificar e migrar as linhas. Testado com dados na tabela e com o ciclo upgrade → downgrade → upgrade; o downgrade também descarta as linhas (o `jti` não reconstrói o token).
+
+## 15. Rotação do refresh token (simples, com teto absoluto)
+
+**Problema.** `/auth/refresh` devolvia só um access novo e o mesmo refresh: um refresh roubado valia por 7 dias, mesmo depois de a vítima usar o app.
+
+**Alternativas.**
+- **Rotação simples** *(escolhida)*: cada refresh vale uma vez. Reuso dá 401.
+- Rotação com detecção de roubo (reuso derruba todas as sessões): exige estado novo (família de tokens ou `sessions_valid_after`) e derrubaria também usuários legítimos que perderam uma resposta ou usam duas abas.
+- Janela de tolerância para o token antigo: complexa e enfraquece o ganho.
+
+**Escolhas de detalhe**
+- **Teto absoluto:** o refresh novo herda a expiração do original (sem claim nem estado novo). A alternativa, validade deslizante, deixaria um token roubado e rotacionado vivo indefinidamente.
+- **Atômico:** a revogação é um `INSERT ... ON CONFLICT DO NOTHING RETURNING`. Checar a blacklist e depois inserir deixaria duas renovações simultâneas passarem pela checagem e a segunda estourar o `UNIQUE` em 500. Testado com 8 revogações concorrentes contra o Postgres: exatamente uma vence.
+- **Contrato:** `RefreshTokenResponse` ganhou `refresh_token`. Backend e frontend precisam ser implantados juntos; sem guardar o novo refresh, a sessão cai no segundo uso.
+
+**Validação.** Mutações: com expiração deslizante e sem `ON CONFLICT`, os testes quebram. O teste do teto usa uma sessão de 2 dias para que uma expiração deslizante (7 dias) seja distinguível; num primeiro desenho os tokens eram criados no mesmo segundo e o teste não detectava a mutação.
+
