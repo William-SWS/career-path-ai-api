@@ -196,6 +196,46 @@ def test_resume_analysis_is_saved_and_receives_the_resume_text(monkeypatch):
     assert "RESUME-TEXT" in llm.calls[0][0].user
 
 
+# ---------- a conexão é devolvida ao pool antes de esperar o LLM
+
+class ConnectionProbeLLM(FakeLLM):
+    """Registra quantas vezes a sessão foi fechada no instante em que o LLM é chamado."""
+
+    def __init__(self, session, text):
+        super().__init__(text)
+        self.session = session
+        self.closes_at_call = None
+
+    async def generate(self, prompt, params, response_schema=None):
+        self.closes_at_call = self.session.closes
+        return await super().generate(prompt, params, response_schema)
+
+
+@pytest.mark.parametrize(
+    "cls, attr, schema, call",
+    [
+        (DevelopmentTrailService, "development_trail_repository", DevelopmentTrailOutput,
+         lambda svc: svc.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER)),
+        (InterviewGuideService, "interview_guide_repository", InterviewGuideOutput,
+         lambda svc: svc.generate_interview_guide_service(pdf_upload(), "job", USER)),
+        (ResumeAnalysisService, "resume_analysis_repository", ResumeAnalysisOutput,
+         lambda svc: svc.analyze_resume_service(pdf_upload(), USER)),
+    ],
+    ids=["trail", "interview", "resume"],
+)
+def test_session_is_released_before_calling_the_llm(monkeypatch, cls, attr, schema, call):
+    service, _ = make_service(cls, attr)
+    llm = ConnectionProbeLLM(service.db, json.dumps(sample_output(schema)))
+    service.llm = llm
+    stub_pdf(monkeypatch, interview_guide_services)
+    stub_pdf(monkeypatch, resume_analysis_services)
+
+    run(call(service))
+
+    assert llm.closes_at_call == 1
+    assert commits(service) == 1  # liberar a conexão não altera a fronteira transacional
+
+
 # ---------- recursos de outro usuário ou inexistentes: sempre 404
 
 CASES = [

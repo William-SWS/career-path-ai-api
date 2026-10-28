@@ -4,6 +4,7 @@ class FakeSession:
     def __init__(self, commit_error: Exception | None = None):
         self.commit_error = commit_error
         self.commits = 0
+        self.closes = 0
         self.added = []
 
     def add(self, obj):
@@ -19,6 +20,9 @@ class FakeSession:
         if self.commit_error:
             raise self.commit_error
         self.commits += 1
+
+    async def close(self):
+        self.closes += 1
 
 
 class FakeLLM:

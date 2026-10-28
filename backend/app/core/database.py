@@ -44,6 +44,16 @@ async def get_db():
             await session.close()
 
 
+async def release_connection(db: AsyncSession) -> None:
+    """Devolve a conexão ao pool antes de uma espera longa que não usa o banco (ex.: LLM).
+
+    A autenticação já fez consultas na sessão, e a transação aberta seguraria a
+    conexão durante toda a espera. `close()` encerra a transação e solta os objetos
+    (que continuam legíveis); a sessão reabre uma conexão na próxima consulta.
+    """
+    await db.close()
+
+
 def get_db_sync():
     """
     Dependency para obter uma sessão de banco de dados síncrona

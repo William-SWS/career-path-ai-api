@@ -1,4 +1,5 @@
 from fastapi import UploadFile
+from app.core.database import release_connection
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
 from app.llm.responses import parse_structured_response
@@ -38,6 +39,7 @@ class InterviewGuideService:
         resume_text = await check_pdf(file)
 
         prompt = build_interview_guide_prompt(resume_text, job_description)
+        await release_connection(self.db)
         response_text = await self.llm.generate(
             prompt, INTERVIEW_GUIDE_PARAMS, response_schema=InterviewGuideOutput
         )

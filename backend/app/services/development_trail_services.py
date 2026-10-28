@@ -1,3 +1,4 @@
+from app.core.database import release_connection
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
 from app.llm.responses import parse_structured_response
@@ -47,6 +48,7 @@ class DevelopmentTrailService:
     ) -> DevelopmentTrailResponse:
         """Serviço que gera trilha de desenvolvimento usando Google Gemini"""
         prompt = create_adaptive_development_trail_prompt(user_data)
+        await release_connection(self.db)
         response_text = await self.llm.generate(
             prompt, DEVELOPMENT_TRAIL_PARAMS, response_schema=DevelopmentTrailOutput
         )

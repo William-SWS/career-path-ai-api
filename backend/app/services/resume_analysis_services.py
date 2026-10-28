@@ -1,4 +1,5 @@
 from fastapi import UploadFile
+from app.core.database import release_connection
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
 from app.llm.responses import parse_structured_response
@@ -38,6 +39,7 @@ class ResumeAnalysisService:
         text = await check_pdf(file)
 
         prompt = build_resume_analysis_prompt(text)
+        await release_connection(self.db)
         response_text = await self.llm.generate(
             prompt, RESUME_ANALYSIS_PARAMS, response_schema=ResumeAnalysisOutput
         )
