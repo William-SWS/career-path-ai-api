@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Um novo push na mesma branch cancela a execução anterior ainda em andamento.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint, tipos e testes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: career_path_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d career_path_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      # Ativam os testes de integração (Postgres e Redis reais). Nenhum segredo é necessário:
+      # os testes usam um LLM falso e nunca chamam o Gemini.
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/career_path_test
+      REDIS_TEST_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Instalar dependências
+        run: uv sync --locked
+
+      - name: Lint (ruff)
+        run: uv run ruff check app tests evals scripts
+
+      - name: Formatação (ruff format)
+        run: uv run ruff format --check app tests evals scripts
+
+      - name: Tipos (mypy)
+        run: uv run mypy
+
+      - name: Testes (unitários e de integração)
+        run: uv run pytest -q
+
+  docker:
+    name: Backend (build da imagem)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Só constrói (sem publicar): garante que o Dockerfile continua válido.
+      - name: Build da imagem
+        run: docker build -f backend/docker/Dockerfile -t career-path-backend:ci backend
