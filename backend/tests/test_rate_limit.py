@@ -26,7 +26,10 @@ def memory_limiter():
 class BrokenStorage(MemoryStorage):
     """Simula o Redis fora do ar: as operações da janela móvel levantam StorageError."""
 
+    calls = 0
+
     async def acquire_entry(self, *args, **kwargs):
+        self.calls += 1
         raise StorageError(ConnectionError("redis down"))
 
     async def get_moving_window(self, *args, **kwargs):
@@ -77,6 +80,46 @@ def test_storage_failure_fails_closed_when_requested():
         run(RateLimiter(BrokenStorage()).hit("ai", "1/minute", "k", fail_closed=True))
 
     assert exc_info.value.status_code == 503 and exc_info.value.code == "rate_limiter_unavailable"
+
+
+def test_after_a_storage_failure_it_stops_asking_storage_until_the_cooldown_ends():
+    now = [100.0]
+    storage = BrokenStorage()
+    limiter = RateLimiter(storage, clock=lambda: now[0])
+
+    async def hits(n):
+        for _ in range(n):
+            await limiter.hit("login", "1/minute", "k")
+
+    run(hits(5))
+    assert storage.calls == 1          # só a primeira requisição pagou o timeout
+
+    now[0] += 11                       # passou o cooldown: tenta o storage de novo
+    run(hits(2))
+    assert storage.calls == 2
+
+
+def test_fail_closed_keeps_refusing_during_the_cooldown_without_calling_storage():
+    storage = BrokenStorage()
+    limiter = RateLimiter(storage, clock=lambda: 100.0)
+
+    for _ in range(3):
+        with pytest.raises(ServiceUnavailableException):
+            run(limiter.hit("ai", "1/minute", "k", fail_closed=True))
+
+    assert storage.calls == 1
+
+
+def test_storage_recovery_is_noticed_after_the_cooldown():
+    now = [0.0]
+    limiter = RateLimiter(BrokenStorage(), clock=lambda: now[0])
+    run(limiter.hit("login", "1/minute", "k"))                       # falha, abre o cooldown
+    limiter._strategy = memory_limiter()._strategy                    # o Redis "voltou"
+
+    now[0] += 11
+    run(limiter.hit("login", "1/minute", "k"))
+    with pytest.raises(RateLimitException):                           # e o limite volta a valer
+        run(limiter.hit("login", "1/minute", "k"))
 
 
 # ---------- IP do cliente ----------

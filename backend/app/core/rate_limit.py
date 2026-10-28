@@ -17,9 +17,16 @@ from app.core.exceptions import RateLimitException, ServiceUnavailableException
 from app.core.logging_config import logger
 
 
+# Depois de uma falha do storage, não o consultamos por este tempo. Sem isso, cada requisição
+# esperaria os timeouts do Redis (medido: ~3 s) durante toda a queda.
+_STORAGE_COOLDOWN_SECONDS = 10
+
+
 class RateLimiter:
-    def __init__(self, storage):
+    def __init__(self, storage, clock=time.monotonic):
         self._strategy = MovingWindowRateLimiter(storage)
+        self._clock = clock
+        self._unavailable_until = 0.0
 
     async def hit(self, namespace: str, limit: str, key: str, *, fail_closed: bool = False) -> None:
         """Conta uma requisição; levanta RateLimitException se o limite foi atingido.
@@ -28,19 +35,19 @@ class RateLimiter:
         e registra o erro, para que uma falha do Redis não derrube o login.
         """
         item = parse_limit(limit)
+        if self._clock() < self._unavailable_until:
+            return self._storage_down(namespace, fail_closed)
         try:
             allowed = await self._strategy.hit(item, namespace, key)
             if allowed:
                 return
             reset_time = (await self._strategy.get_window_stats(item, namespace, key)).reset_time
         except StorageError:
-            logger.exception("Rate limiter indisponível (%s, fail_closed=%s)", namespace, fail_closed)
-            if fail_closed:
-                raise ServiceUnavailableException(
-                    "Serviço temporariamente indisponível. Tente novamente em instantes.",
-                    code="rate_limiter_unavailable",
-                )
-            return
+            self._unavailable_until = self._clock() + _STORAGE_COOLDOWN_SECONDS
+            logger.exception(
+                "Rate limiter indisponível (%s); sem consultar por %ss", namespace, _STORAGE_COOLDOWN_SECONDS
+            )
+            return self._storage_down(namespace, fail_closed)
 
         retry_after = max(1, math.ceil(reset_time - time.time()))
         logger.warning("Limite excedido (%s)", namespace)
@@ -49,6 +56,14 @@ class RateLimiter:
             code="rate_limit_exceeded",
             headers={"Retry-After": str(retry_after)},
         )
+
+    @staticmethod
+    def _storage_down(namespace: str, fail_closed: bool) -> None:
+        if fail_closed:
+            raise ServiceUnavailableException(
+                "Serviço temporariamente indisponível. Tente novamente em instantes.",
+                code="rate_limiter_unavailable",
+            )
 
 
 def build_rate_limiter(redis_url: str) -> RateLimiter:
