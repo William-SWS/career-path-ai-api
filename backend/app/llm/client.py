@@ -101,7 +101,9 @@ class GeminiClient:
         try:
             # O teto vale para todas as tentativas juntas: retry nunca alonga a espera do usuário.
             async with asyncio.timeout(self.timeout_seconds + _HARD_TIMEOUT_MARGIN_SECONDS):
-                response, attempts = await self._generate_with_retry(prompt.user, config)
+                response, attempts = await self._generate_with_retry(
+                    self._client, prompt.user, config
+                )
         except errors.APIError as exc:
             raise self._translate_api_error(exc) from exc
         except (TimeoutError, httpx.TimeoutException) as exc:
@@ -118,11 +120,13 @@ class GeminiClient:
         self._log_usage(response, attempts, time.perf_counter() - started)
         return self._extract_text(response)
 
-    async def _generate_with_retry(self, prompt: str, config: types.GenerateContentConfig):
+    async def _generate_with_retry(
+        self, client: genai.Client, prompt: str, config: types.GenerateContentConfig
+    ) -> tuple[types.GenerateContentResponse, int]:
         attempt = 1
         while True:
             try:
-                response = await self._client.aio.models.generate_content(
+                response = await client.aio.models.generate_content(
                     model=self.model, contents=prompt, config=config
                 )
                 return response, attempt

@@ -70,8 +70,10 @@ class InterviewGuideService:
             user_id=current_user.id, skip=skip, limit=limit
         )
 
-        return InterviewGuideListResponse(
-            interview_guides=interview_guides, total_count=total_count
+        # Os itens são modelos ORM: from_attributes os converte para o schema de resposta.
+        return InterviewGuideListResponse.model_validate(
+            {"interview_guides": interview_guides, "total_count": total_count},
+            from_attributes=True,
         )
 
     async def get_interview_guide_by_id_service(

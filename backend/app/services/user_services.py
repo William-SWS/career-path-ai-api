@@ -127,7 +127,7 @@ class UserService:
                 revoke_refresh = not await is_token_blacklisted(refresh_token, self.db)
 
         await add_token_to_blacklist(access_token, self.db)
-        if revoke_refresh:
+        if refresh_token and revoke_refresh:
             await add_token_to_blacklist(refresh_token, self.db)
         await self.db.commit()
 
@@ -150,11 +150,12 @@ class UserService:
         updated_data = user_data.model_dump(exclude_unset=True, exclude_none=True)
 
         updated_user = await self.user_repository.update(current_user.id, **updated_data)
+        if updated_user is None:
+            raise NotFoundException("Usuário não encontrado", code="user_not_found")
         await self.db.commit()
         await self.db.refresh(updated_user)
 
         return UserUpdateResponse(
-            id=updated_user.id,
             name=updated_user.name,
             email=updated_user.email,
             updated_at=updated_user.updated_at,

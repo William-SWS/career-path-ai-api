@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Mapping
 
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
@@ -15,7 +16,7 @@ def build_error_response(
     message: str,
     code: str,
     details: list[dict] | None = None,
-    headers: dict | None = None,
+    headers: Mapping[str, str] | None = None,
 ):
     error = {"status": status_code, "code": code, "message": message}
     if details:

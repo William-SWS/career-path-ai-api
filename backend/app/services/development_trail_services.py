@@ -82,8 +82,10 @@ class DevelopmentTrailService:
             user_id=current_user.id, skip=skip, limit=limit
         )
 
-        return DevelopmentTrailListResponse(
-            development_trails=development_trails, total_count=total_count
+        # Os itens são modelos ORM: from_attributes os converte para o schema de resposta.
+        return DevelopmentTrailListResponse.model_validate(
+            {"development_trails": development_trails, "total_count": total_count},
+            from_attributes=True,
         )
 
     async def get_development_trail_by_id_service(

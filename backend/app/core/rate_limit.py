@@ -6,9 +6,12 @@ por rota (chaves e valores) ficam em api/v1/dependencies/rate_limit.py.
 
 import math
 import time
+from collections.abc import Callable
 from functools import lru_cache
+from typing import cast
 
 from limits import parse as parse_limit
+from limits.aio.storage import Storage
 from limits.aio.strategies import MovingWindowRateLimiter
 from limits.errors import StorageError
 from limits.storage import storage_from_string
@@ -23,7 +26,7 @@ _STORAGE_COOLDOWN_SECONDS = 10
 
 
 class RateLimiter:
-    def __init__(self, storage, clock=time.monotonic):
+    def __init__(self, storage: Storage, clock: Callable[[], float] = time.monotonic) -> None:
         self._strategy = MovingWindowRateLimiter(storage)
         self._clock = clock
         self._unavailable_until = 0.0
@@ -68,19 +71,24 @@ class RateLimiter:
             )
 
 
+def _async_storage(uri: str, **options: float | str | bool) -> Storage:
+    # `storage_from_string` devolve o storage síncrono ou o assíncrono conforme o prefixo;
+    # todas as URIs que montamos têm "async+".
+    return cast(Storage, storage_from_string(uri, **options))
+
+
 def build_rate_limiter(redis_url: str) -> RateLimiter:
+    storage: Storage
     if redis_url:
         # `limits` usa o prefixo "async+" para o cliente assíncrono. Timeouts curtos:
         # um Redis lento não pode atrasar cada requisição.
         uri = "async+" + redis_url.removeprefix("async+")
-        storage = storage_from_string(
-            uri, wrap_exceptions=True, connect_timeout=1, stream_timeout=1
-        )
+        storage = _async_storage(uri, wrap_exceptions=True, connect_timeout=1, stream_timeout=1)
     else:
         logger.warning(
             "REDIS_URL não definido: rate limit em memória, válido só para desenvolvimento"
         )
-        storage = storage_from_string("async+memory://")
+        storage = _async_storage("async+memory://")
     return RateLimiter(storage)
 
 

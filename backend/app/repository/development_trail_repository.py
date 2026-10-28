@@ -31,7 +31,7 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
         )
         total_count = count_result.scalar_one()
 
-        return development_trails, total_count
+        return list(development_trails), total_count
 
     async def get_by_id_and_user_id(
         self, development_trail_id: int, user_id: int

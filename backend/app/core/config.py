@@ -3,7 +3,7 @@ from typing import Literal
 
 from fastapi_mail import ConnectionConfig
 from limits import parse as parse_limit
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -116,7 +116,7 @@ settings = Settings()
 
 conf = ConnectionConfig(
     MAIL_USERNAME=settings.MAIL_USERNAME,
-    MAIL_PASSWORD=settings.MAIL_PASSWORD,
+    MAIL_PASSWORD=SecretStr(settings.MAIL_PASSWORD),
     MAIL_FROM=settings.MAIL_FROM,
     MAIL_PORT=settings.MAIL_PORT,
     MAIL_SERVER=settings.MAIL_SERVER,

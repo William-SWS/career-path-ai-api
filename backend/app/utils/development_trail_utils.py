@@ -39,7 +39,7 @@ def create_adaptive_development_trail_prompt(user_data: DevelopmentTrailRequest)
     )
 
 
-def calculate_timeframe_months(timeframe: str) -> int:
+def calculate_timeframe_months(timeframe: str | None) -> int:
     """Calcula meses totais baseado no timeframe informado"""
     if not timeframe:
         return 6  # default

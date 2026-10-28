@@ -31,7 +31,7 @@ class ResumeAnalysisRepository(BaseRepository[ResumeAnalysis]):
         )
         total_count = count_result.scalar_one()
 
-        return analyses, total_count
+        return list(analyses), total_count
 
     async def get_by_id_and_user_id(self, analysis_id: int, user_id: int) -> ResumeAnalysis | None:
         """

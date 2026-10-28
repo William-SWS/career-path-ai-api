@@ -29,7 +29,7 @@ class InterviewGuideRepository(BaseRepository[InterviewGuide]):
         )
         total_count = count_result.scalar_one()
 
-        return interview_guides, total_count
+        return list(interview_guides), total_count
 
     async def get_by_id_and_user_id(
         self, interview_guide_id: int, user_id: int

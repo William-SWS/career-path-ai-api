@@ -54,6 +54,8 @@ class FakeUserRepository:
 
     async def update(self, user_id, **fields):
         user = await self.get_by_id(user_id)
+        if user is None:  # como o repositório real
+            return None
         for key, value in fields.items():
             setattr(user, key, value)
         return user
@@ -160,6 +162,17 @@ def test_update_keeping_own_email_is_allowed():
     )
 
     assert result.name == "Maria Souza"
+
+
+def test_update_when_the_user_vanished_is_not_found_and_nothing_is_committed():
+    me = make_user(1, "me@example.com")
+    service = make_service()  # o usuário autenticado já não existe no repositório
+
+    with pytest.raises(NotFoundException) as exc_info:
+        run(service.update_user(UserUpdateRequest(name="Maria Souza"), me))
+
+    assert exc_info.value.code == "user_not_found"
+    assert service.db.commits == 0
 
 
 def test_delete_with_wrong_password_is_forbidden_not_unauthorized():
