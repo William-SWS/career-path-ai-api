@@ -29,7 +29,7 @@ Conhecido e **não** resolvido:
 
 - **Cadastro revela contas:** `POST /auth/register` responde `409` quando o e-mail já existe. Corrigir exige mudar o fluxo (por exemplo, confirmar por e-mail) e o contrato com o frontend.
 - **JWT em `localStorage` no frontend**, exposto a XSS. A alternativa (cookie `HttpOnly` + proteção CSRF) não foi implementada.
-- **A rotação do refresh é simples, sem detecção de roubo:** reusar um refresh já revogado dá 401, mas **não** derruba as outras sessões da pessoa. Perder a resposta de uma renovação, ou duas abas renovando quase ao mesmo tempo, também dá 401 e obriga a entrar de novo. O comportamento do frontend no navegador **não foi testado** (não há testes de frontend; só verifiquei lint e build).
+- **A rotação do refresh é simples, sem detecção de roubo:** reusar um refresh já revogado dá 401, mas **não** derruba as outras sessões da pessoa. Perder a resposta de uma renovação, ou duas abas renovando quase ao mesmo tempo, também dá 401 e obriga a entrar de novo. O comportamento do frontend no navegador **não foi testado** (só a lógica de erro e o contrato do `authService` têm testes; a renovação de sessão e os fluxos no navegador não).
 - **Os limites padrão são estimativas minhas**, sem base em dados de uso.
 - **Sem `REDIS_URL`**, o limite fica na memória de cada processo e não protege um deploy com vários workers.
 - Não foi feita revisão de dependências nem varredura de vulnerabilidades (`pip-audit` ou equivalente).
@@ -45,8 +45,9 @@ Conhecido e **não** resolvido:
 
 O frontend vive em [`career-path-ai-web`](https://github.com/daviolvr/career-path-ai-web), que tem as próprias limitações documentadas. O que importa para a API:
 
-- **Não verifiquei** como ele exibe os erros `429` (limite) e `503` (indisponível), nem o `422` com `details` por campo fora dos formulários que já leem o envelope.
-- Ele não tem testes automatizados; o CI dele só roda lint, build e o build da imagem.
+- Ele traduz o envelope de erro em mensagens por `status` e `code` (`429` com o tempo de espera do `Retry-After`, sessão expirada, falha de rede, `5xx`). Essa lógica tem testes unitários e foi executada contra esta API real (422, 401, 429, 403, 404, 502 e rede fora do ar).
+- Os testes dele cobrem só a lógica de erro e o contrato do `authService`; telas e fluxos não têm testes.
+- **As mensagens de validação (`422`) misturam idiomas:** o texto do Pydantic chega em inglês, junto das mensagens próprias em português. O frontend as exibe como vêm; localizá-las é trabalho desta API e não foi feito.
 - Backend e frontend precisam ser implantados juntos quando o contrato muda (foi o caso da rotação do refresh token).
 
 ## O que foi medido, e a validade dessas medições
