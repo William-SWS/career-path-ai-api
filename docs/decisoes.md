@@ -94,7 +94,7 @@ Cada item registra o problema, as alternativas consideradas, o que foi escolhido
 
 ## 12. Imagem Docker
 
-Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), **nenhum segredo copiado para a imagem** (as variáveis vêm do `env_file` do compose), `.dockerignore` próprio do backend (o da raiz não vale para esse contexto), dependências de produção numa camada separada e execução como usuário não-root.
+Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), **nenhum segredo copiado para a imagem** (as variáveis vêm do `env_file` do compose), `.dockerignore` que deixa de fora testes, docs e segredos do contexto de build, dependências de produção numa camada separada e execução como usuário não-root.
 
 ## 13. Avaliação da IA sem "LLM avaliando LLM"
 
@@ -125,4 +125,18 @@ Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), *
 - **Contrato:** `RefreshTokenResponse` ganhou `refresh_token`. Backend e frontend precisam ser implantados juntos; sem guardar o novo refresh, a sessão cai no segundo uso.
 
 **Validação.** Mutações: com expiração deslizante e sem `ON CONFLICT`, os testes quebram. O teste do teto usa uma sessão de 2 dias para que uma expiração deslizante (7 dias) seja distinguível; num primeiro desenho os tokens eram criados no mesmo segundo e o teste não detectava a mutação.
+
+## 16. Dois repositórios, um `.env`
+
+**Problema.** API e interface viviam num monorepo, com `backend/` e `frontend/`, dois arquivos de ambiente (`.env` para o compose, `backend/.env.docker` para a API), CI e README misturados e uma imagem do frontend que rodava o servidor de desenvolvimento.
+
+**Escolha.** Dois repositórios, com papéis no nome: `career-path-ai-api` (este) e `career-path-ai-web`. A API passou para a raiz do repositório e o compose fica com ela, porque ela é dona do Postgres e do Redis; o frontend entra como serviço opcional (`--profile full`, com o repositório clonado ao lado). Alternativas descartadas: um terceiro repositório só para o compose e submodules (overhead para um projeto solo).
+
+**Histórico.** O do frontend foi extraído com `git filter-branch --subdirectory-filter` num clone novo, preservando autoria e datas. O deste repositório não foi reescrito: os arquivos do frontend continuam no histórico antigo, o que é inofensivo.
+
+**Um `.env` só.** O compose o usa para substituir variáveis (`${POSTGRES_*}`) e como `env_file` da API; a API fora do Docker também o lê. Dentro do container, `environment` sobrescreve `POSTGRES_HOST`, `POSTGRES_PORT` e `REDIS_URL`. O container do Postgres recebe só as três variáveis `POSTGRES_*`, nenhum outro segredo.
+
+**Validação.** O stack foi subido de verdade a partir de uma cópia descartável com um `.env` de valores falsos: migrations do zero, cadastro, login, rotação do refresh, rate limit com o Redis, CORS da origem do frontend e o perfil `full` com a imagem do outro repositório. A sobrescrita do `POSTGRES_HOST` foi provada deixando `localhost` no `.env`.
+
+**Custo.** A demo completa exige dois clones lado a lado, e o contrato entre os repositórios é só a documentação da API.
 

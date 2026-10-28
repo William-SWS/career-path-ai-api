@@ -1,13 +1,12 @@
 # Desenvolvimento
 
-Como configurar, rodar e verificar o backend fora do Docker. Para subir o projeto completo com Docker, veja o [README](../README.md#como-executar-docker).
+Como configurar, rodar e verificar a API fora do Docker. Para subir o projeto completo com Docker, veja o [README](../README.md#como-executar-docker).
 
-Todos os comandos abaixo partem de `backend/`. Pré-requisitos: Python 3.13 e [`uv`](https://docs.astral.sh/uv/).
+Todos os comandos abaixo partem da raiz do repositório. Pré-requisitos: Python 3.13 e [`uv`](https://docs.astral.sh/uv/).
 
 ## Rodar localmente
 
 ```bash
-cd backend
 uv sync --locked                 # instala as dependências do uv.lock (inclui as de desenvolvimento)
 cp .env.example .env             # preencha conforme a tabela abaixo
 ```
@@ -32,7 +31,7 @@ Remova o container quando terminar: `docker rm -f careerpath-pg`.
 
 ## Configuração
 
-Todas as variáveis são lidas por `app/core/config.py` (`Settings`). Sem as obrigatórias, a API **não inicia**. O modelo de arquivo é `backend/.env.example`, e um teste (`tests/test_env_example.py`) garante que ele lista toda variável da classe.
+Todas as variáveis são lidas por `app/core/config.py` (`Settings`). Sem as obrigatórias, a API **não inicia**. O modelo de arquivo é `.env.example`, e um teste (`tests/test_env_example.py`) garante que ele lista toda variável da classe.
 
 **Obrigatórias**
 
@@ -100,11 +99,11 @@ Os testes nunca chamam o Gemini: usam um LLM falso (`tests/fakes.py`). O CI exec
 
 ### Avaliação da geração com IA
 
-Manual, fora dos testes, porque usa a rede e a cota da chave. Instruções, critérios e o que ela **não** mede: [`backend/evals/README.md`](../backend/evals/README.md).
+Manual, fora dos testes, porque usa a rede e a cota da chave. Instruções, critérios e o que ela **não** mede: [`evals/README.md`](../evals/README.md).
 
 ```bash
 uv run python -m evals.run_eval --dry-run                # só conta as chamadas
-uv run python -m evals.run_eval --env-file .env.docker   # 36 chamadas reais
+uv run python -m evals.run_eval --env-file .env          # 36 chamadas reais
 ```
 
 ### Verificar a chave do Gemini
@@ -127,4 +126,4 @@ Se você alterar um modelo e esquecer a migration, o teste de integração `test
 
 ## Contêiner
 
-O backend roda em Python 3.13 como usuário não-root, sem segredos na imagem. As migrations são aplicadas quando o container sobe. Para construir só a imagem: `docker build -f backend/docker/Dockerfile backend`.
+A API roda em Python 3.13 como usuário não-root, sem segredos na imagem. As migrations são aplicadas quando o container sobe. Para construir só a imagem: `docker build -f docker/Dockerfile -t career-path-api .`.
