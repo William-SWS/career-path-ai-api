@@ -70,7 +70,7 @@ Na geração com IA, isso significa que **nada é salvo se o modelo falhar ou de
 
 - **Três tipos de token**, distinguidos pela claim `type`: `access`, `refresh` e `reset_password`. Um não vale no lugar do outro (testado). Cada token tem um `jti` para ser único.
 - **A troca de senha encerra as sessões.** Access e refresh levam a claim `pwd`, a impressão (HMAC) do hash da senha com que foram emitidos. `_authenticate` compara a claim com a senha atual do usuário; se a senha mudou, ou se o token não tem a claim, a resposta é 401. Não há estado extra no banco. Consequência: tokens emitidos antes dessa claim existir deixaram de valer e as pessoas precisaram entrar de novo uma vez.
-- **Logout** coloca o access token (e o refresh, se enviado) numa *blacklist* no banco; uma tarefa agendada (a cada 24 h) remove os expirados.
+- **Logout** coloca o access token (e o refresh, se enviado) numa *blacklist* no banco, que guarda **só o `jti`** e a expiração (nunca o JWT); uma tarefa agendada (a cada 24 h) remove os expirados.
 - **Redefinição de senha:** o token carrega uma impressão (HMAC) do hash da senha atual, então **só pode ser usado uma vez**: depois de trocar a senha, o mesmo link deixa de valer.
 - **Login e recuperação não revelam quais contas existem.** O login executa uma verificação de senha fictícia quando o e-mail não existe; antes disso, a diferença de tempo era mensurável (≈219 ms a mais para e-mails existentes, em uma medição local; depois, 222 ms contra 221 ms).
 - `SECRET_KEY` com menos de 32 caracteres impede a API de iniciar. O CORS aceita apenas a origem configurada em `FRONTEND_HOST`.

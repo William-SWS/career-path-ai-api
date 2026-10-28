@@ -29,10 +29,9 @@ Conhecido e **não** resolvido:
 
 - **Cadastro revela contas:** `POST /auth/register` responde `409` quando o e-mail já existe. Corrigir exige mudar o fluxo (por exemplo, confirmar por e-mail) e o contrato com o frontend.
 - **JWT em `localStorage` no frontend**, exposto a XSS. A alternativa (cookie `HttpOnly` + proteção CSRF) não foi implementada.
-- **O refresh token não é rotacionado**, e a blacklist guarda o token inteiro em vez de só o `jti`.
+- **O refresh token não é rotacionado:** `/auth/refresh` devolve só um novo access token, e um refresh roubado vale até expirar (7 dias por padrão), a menos que haja logout ou troca de senha.
 - **Os limites padrão são estimativas minhas**, sem base em dados de uso.
 - **Sem `REDIS_URL`**, o limite fica na memória de cada processo e não protege um deploy com vários workers.
-- `token_blacklist.token` ainda aceita `NULL` no banco (mantido para não misturar a mudança com outra migration).
 - Não foi feita revisão de dependências nem varredura de vulnerabilidades (`pip-audit` ou equivalente).
 
 ## Arquitetura e código
@@ -61,4 +60,4 @@ Todas as medições deste projeto são de **uma máquina, poucas amostras e, qua
 | Diferença de tempo no login (e-mail existente vs não) | ≈219 ms de diferença → 222 ms contra 221 ms | medição local, poucas repetições |
 | Requisição com o Redis parado | ~3 s em toda requisição → 0,22 s após a 1ª | stack local no Docker |
 | Erros do `mypy` | 105 → 0 | configuração atual |
-| Testes | 303 (266 sem banco + 37 de integração/Redis) | só passam as 37 com PostgreSQL e Redis disponíveis |
+| Testes | 307 (266 sem banco + 41 de integração/Redis) | só passam as 41 com PostgreSQL e Redis disponíveis |

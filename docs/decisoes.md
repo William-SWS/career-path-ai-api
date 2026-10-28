@@ -101,3 +101,11 @@ Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), *
 **Escolha.** Critérios objetivos e determinísticos (schema válido, idioma, nº de fases coerente com o prazo, não inventar habilidades, nível esperado, termo proibido), com os próprios critérios testados. Fica fora dos testes padrão porque usa a rede e a cota.
 
 **O que não mede:** a qualidade do conteúdo (os cursos recomendados existem? o conselho é bom?), que exige revisão humana.
+
+## 14. A blacklist guarda o `jti`, não o token
+
+**Problema.** A tabela `token_blacklist` guardava o JWT inteiro (centenas de bytes por linha, indexados) e tinha uma coluna `token` que aceitava `NULL` sem motivo. Os tokens revogados já são inúteis, então o ganho não é de segurança contra vazamento: é de tamanho do índice e de higiene do schema.
+
+**Escolha.** Guardar só o `jti` (identificador único que todo token já tinha) com a expiração, `NOT NULL` e índice único. Revogar um token inválido ou expirado é um no-op, porque a validação já o recusa antes da consulta.
+
+**Migration.** Descarta as linhas existentes: o `jti` só sairia decodificando cada token, e eles expiram em até 7 dias. O efeito é que tokens revogados antes da migration voltam a valer até expirar; aceitável aqui porque não havia ambiente com dados a preservar. Num ambiente real, o certo seria decodificar e migrar as linhas. Testado com dados na tabela e com o ciclo upgrade → downgrade → upgrade; o downgrade também descarta as linhas (o `jti` não reconstrói o token).
