@@ -1,15 +1,19 @@
 services:
-  backend:
-    container_name: career-path-backend
+  api:
+    container_name: career-path-api
     build:
-      context: ./backend
+      context: .
       dockerfile: docker/Dockerfile
     ports:
       - "8000:8000"
+    # Toda a configuração vem de um único .env (veja .env.example).
     env_file:
-      - ./backend/.env.docker
+      - .env
     environment:
-      # Dentro da rede do compose o Redis é alcançado pelo nome do serviço.
+      # Dentro da rede do compose, banco e Redis são alcançados pelo nome do serviço:
+      # estes valores têm precedência sobre os do .env, que servem a quem roda fora do Docker.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
@@ -21,6 +25,7 @@ services:
   postgres:
     image: postgres:17
     container_name: career-path-postgres
+    # Só estas três variáveis chegam ao container do banco (nenhum outro segredo do .env).
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -49,15 +54,22 @@ services:
       timeout: 3s
       retries: 3
 
-  frontend:
-    container_name: career-path-frontend
+  # Opcional: `docker compose --profile full up --build`. O frontend vive em outro repositório
+  # (career-path-ai-web) e precisa estar clonado ao lado deste.
+  web:
+    profiles: ["full"]
+    container_name: career-path-web
     build:
-      context: ./frontend
+      context: ../career-path-ai-web
       dockerfile: docker/Dockerfile
+      args:
+        # O navegador (no host) fala com a API pela porta publicada acima.
+        VITE_API_URL: http://localhost:8000
     ports:
-      - "5173:5173"
+      - "5173:8080"
     depends_on:
-      - backend
+      - api
+    restart: unless-stopped
 
 volumes:
   postgres_data:

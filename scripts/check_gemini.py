@@ -1,6 +1,6 @@
 """Verificação manual da chave do Gemini: lista os modelos visíveis e faz uma chamada mínima.
 
-Uso (a partir de backend/):
+Uso (a partir da raiz do repositório):
     python -m scripts.check_gemini [--env-file .env] [--model NOME]
 
 A chave nunca é impressa. Não faz parte da suíte de testes (usa a rede e a cota real).

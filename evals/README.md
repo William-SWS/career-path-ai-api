@@ -6,9 +6,9 @@ padrão: usa a rede e gasta cota.
 
 ```bash
 python -m evals.run_eval --dry-run                      # só conta as chamadas
-python -m evals.run_eval --env-file .env.docker         # 6 casos x 3 usos x 2 repetições = 36 chamadas
-python -m evals.run_eval --env-file .env.docker --cases junior_backend --reps 3
-python -m evals.run_eval --env-file .env.docker --thinking-budget -1   # compara com raciocínio dinâmico
+python -m evals.run_eval --env-file .env         # 6 casos x 3 usos x 2 repetições = 36 chamadas
+python -m evals.run_eval --env-file .env --cases junior_backend --reps 3
+python -m evals.run_eval --env-file .env --thinking-budget -1   # compara com raciocínio dinâmico
 ```
 
 O relatório completo (saídas e latências) vai para `evals/results/` (ignorado pelo git).

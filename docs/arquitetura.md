@@ -1,11 +1,11 @@
-# Arquitetura do backend
+# Arquitetura da API
 
-Este documento descreve **como o backend funciona hoje**. As alternativas que foram consideradas e o motivo de cada escolha estão em [`decisoes.md`](decisoes.md); o que não foi verificado está em [`limitacoes.md`](limitacoes.md).
+Este documento descreve **como a API funciona hoje** (o frontend vive em [`career-path-ai-web`](https://github.com/daviolvr/career-path-ai-web)). As alternativas que foram consideradas e o motivo de cada escolha estão em [`decisoes.md`](decisoes.md); o que não foi verificado está em [`limitacoes.md`](limitacoes.md).
 
 ## Estrutura
 
 ```
-backend/
+.
 ├── app/
 │   ├── main.py                  # cria a app, CORS, handlers de erro, agendador
 │   ├── api/v1/

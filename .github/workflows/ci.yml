@@ -14,13 +14,10 @@ permissions:
   contents: read
 
 jobs:
-  backend:
-    name: Backend (lint, tipos e testes)
+  api:
+    name: API (lint, tipos e testes)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: backend
     services:
       postgres:
         image: postgres:17
@@ -49,7 +46,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
-          cache-dependency-glob: backend/uv.lock
+          cache-dependency-glob: uv.lock
 
       - name: Instalar dependências
         run: uv sync --locked
@@ -67,7 +64,7 @@ jobs:
         run: uv run pytest -q
 
   docker:
-    name: Backend (build da imagem)
+    name: API (build da imagem)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -75,4 +72,4 @@ jobs:
 
       # Só constrói (sem publicar): garante que o Dockerfile continua válido.
       - name: Build da imagem
-        run: docker build -f backend/docker/Dockerfile -t career-path-backend:ci backend
+        run: docker build -f docker/Dockerfile -t career-path-api:ci .

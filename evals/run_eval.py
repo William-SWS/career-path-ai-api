@@ -1,8 +1,8 @@
 """Avaliação manual da geração com a chave real. Fora da suíte padrão: gasta cota e usa a rede.
 
-Uso (a partir de backend/):
+Uso (a partir da raiz do repositório):
     python -m evals.run_eval --dry-run
-    python -m evals.run_eval --env-file .env.docker [--reps 2] [--cases junior_backend,sparse_input]
+    python -m evals.run_eval --env-file .env [--reps 2] [--cases junior_backend,sparse_input]
                              [--model gemini-2.5-flash] [--thinking-budget 0]
 
 Chama o mesmo caminho dos serviços (builder de prompt -> GeminiClient -> schema) e aplica

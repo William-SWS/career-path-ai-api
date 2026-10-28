@@ -2,7 +2,7 @@
 .env
 .env.local
 .env.*.local
-backend/.env.docker
+.env.docker
 
 # Python
 __pycache__/
@@ -14,13 +14,6 @@ __pycache__/
 venv/
 ENV/
 env/
-
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
 
 # IDE
 .vscode/
