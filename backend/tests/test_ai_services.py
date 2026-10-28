@@ -2,27 +2,31 @@
 import asyncio
 import io
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
 from fastapi import UploadFile
 
 from app.core.exceptions import ExternalServiceException, NotFoundException, RateLimitException
+from app.schemas.ai_outputs import (
+    DevelopmentTrailOutput,
+    InterviewGuideOutput,
+    ResumeAnalysisOutput,
+)
 from app.schemas.development_trail_schema import (
     DevelopmentTrailRequest,
     DevelopmentTrailUpdateRequest,
 )
-from app.schemas.ai_outputs import DevelopmentTrailOutput, InterviewGuideOutput, ResumeAnalysisOutput
-from tests.fakes import FakeLLM, FakeSession, sample_output
 from app.services import interview_guide_services, resume_analysis_services
 from app.services.development_trail_services import DevelopmentTrailService
 from app.services.interview_guide_services import InterviewGuideService
 from app.services.resume_analysis_services import ResumeAnalysisService
+from tests.fakes import FakeLLM, FakeSession, sample_output
 
 USER = SimpleNamespace(id=1)
 OTHER_USER_ID = 2
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 class FakeRepository:
@@ -89,7 +93,12 @@ def trail_record(id=1, user_id=USER.id):
     )
 
 
-def guide_record(id=1, user_id=USER.id, content={"preparation_overview": "x"}):
+_DEFAULT_CONTENT = object()  # None é um valor válido (coluna nula), então não serve de padrão
+
+
+def guide_record(id=1, user_id=USER.id, content=_DEFAULT_CONTENT):
+    if content is _DEFAULT_CONTENT:
+        content = {"preparation_overview": "x"}
     return SimpleNamespace(id=id, user_id=user_id, interview_guide=content, created_at=NOW)
 
 

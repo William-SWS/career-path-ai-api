@@ -1,5 +1,6 @@
 """Critérios objetivos e determinísticos sobre a saída do modelo (sem nota subjetiva automática)."""
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from evals.cases import EvalCase
 

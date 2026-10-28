@@ -3,6 +3,7 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+
 from app.core.security import bcrypt_context, create_token, is_token_blacklisted
 from app.repository.development_trail_repository import DevelopmentTrailRepository
 from app.repository.user_repository import UserRepository

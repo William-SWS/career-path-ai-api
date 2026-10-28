@@ -6,7 +6,9 @@ from app.llm.prompts import PROMPT_VERSION, Prompt, load_system_prompt, untruste
 from app.schemas.development_trail_schema import DevelopmentTrailRequest
 from app.utils.development_trail_utils import create_adaptive_development_trail_prompt
 from app.utils.interview_guide_utils import (
-    MAX_JOB_DESCRIPTION_CHARS, MAX_RESUME_CHARS, build_interview_guide_prompt,
+    MAX_JOB_DESCRIPTION_CHARS,
+    MAX_RESUME_CHARS,
+    build_interview_guide_prompt,
 )
 from app.utils.resume_analysis_utils import build_resume_analysis_prompt
 

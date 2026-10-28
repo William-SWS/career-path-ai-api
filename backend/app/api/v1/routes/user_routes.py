@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends
+
+from app.api.v1.dependencies.security import verify_token
+from app.api.v1.dependencies.services import get_user_service
+from app.models.user import User
 from app.schemas.user_schema import (
     MessageResponse,
+    UserDeleteRequest,
+    UserGetResponse,
     UserUpdateRequest,
     UserUpdateResponse,
-    UserDeleteRequest,
-    UserGetResponse
 )
 from app.services.user_services import UserService
-from app.api.v1.dependencies.security import verify_token
-from app.models.user import User
-from app.api.v1.dependencies.services import get_user_service
-
 
 router = APIRouter()
 

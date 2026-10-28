@@ -1,23 +1,25 @@
+from datetime import UTC, datetime
+
 from fastapi import UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import release_connection
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
 from app.llm.responses import parse_structured_response
+from app.models.user import User
+from app.repository.resume_analysis_repository import ResumeAnalysisRepository
 from app.schemas.ai_outputs import ResumeAnalysisOutput
+from app.schemas.resume_analysis_schema import (
+    ResumeAnalysisDeleteResponse,
+    ResumeAnalysisListResponse,
+    ResumeAnalysisResponse,
+)
+from app.utils.pdf_utils import check_pdf
 from app.utils.resume_analysis_utils import (
     RESUME_ANALYSIS_PARAMS,
     build_resume_analysis_prompt,
 )
-from app.models.user import User
-from app.schemas.resume_analysis_schema import (
-    ResumeAnalysisResponse, 
-    ResumeAnalysisListResponse,
-    ResumeAnalysisDeleteResponse
-)
-from app.utils.pdf_utils import check_pdf
-from app.repository.resume_analysis_repository import ResumeAnalysisRepository
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone
 
 
 def _analysis_not_found() -> NotFoundException:
@@ -52,7 +54,7 @@ class ResumeAnalysisService:
             user_id=current_user.id,
             original_filename=file.filename,
             analysis_result=analysis_result,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
 
         await self.db.commit()

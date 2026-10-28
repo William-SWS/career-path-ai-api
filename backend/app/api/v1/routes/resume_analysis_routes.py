@@ -1,11 +1,15 @@
-from fastapi import APIRouter, UploadFile, File, Depends, Query
-from app.models.user import User
-from app.services.resume_analysis_services import ResumeAnalysisService
+from fastapi import APIRouter, Depends, File, Query, UploadFile
+
 from app.api.v1.dependencies.rate_limit import limit_ai_generation
 from app.api.v1.dependencies.security import verify_token
-from app.schemas.resume_analysis_schema import ResumeAnalysisResponse, ResumeAnalysisListResponse, ResumeAnalysisDeleteResponse
 from app.api.v1.dependencies.services import get_resume_analysis_service
-
+from app.models.user import User
+from app.schemas.resume_analysis_schema import (
+    ResumeAnalysisDeleteResponse,
+    ResumeAnalysisListResponse,
+    ResumeAnalysisResponse,
+)
+from app.services.resume_analysis_services import ResumeAnalysisService
 
 router = APIRouter()
 
@@ -39,7 +43,7 @@ async def get_my_resume_analyses(
         current_user, skip, limit
     )
     return analyses
-    
+
 
 @router.get("/{analysis_id}", response_model=ResumeAnalysisResponse)
 async def get_resume_analysis(

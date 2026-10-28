@@ -1,17 +1,17 @@
-from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict
 
 
 class InterviewGuideResponse(BaseModel):
     id: int
-    interview_guide: Dict[str, Any]
+    interview_guide: dict[str, Any]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InterviewGuideListResponse(BaseModel):
-    interview_guides: List[InterviewGuideResponse]
+    interview_guides: list[InterviewGuideResponse]
     total_count: int
 
 

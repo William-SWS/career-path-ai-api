@@ -2,45 +2,14 @@
 from datetime import timedelta
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
-from app.core.database import get_db
 from app.core.security import TokenType, create_token
-from app.main import app
+from tests.integration.conftest import API, CREDENTIALS, bearer
 
 pytestmark = pytest.mark.integration
-
-API = "/api/v1"
-CREDENTIALS = {"email": "maria@example.com", "password": "Abcdef12"}
-
-
-@pytest.fixture
-def http():
-    # Uma sessão por requisição, sem pool: o TestClient roda em outro event loop.
-    engine = create_async_engine(settings.DATABASE_URI, poolclass=NullPool)
-    maker = async_sessionmaker(engine, class_=AsyncSession, autoflush=False)
-
-    async def session_per_request():
-        async with maker() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = session_per_request
-    with TestClient(app) as client:
-        yield client
-    app.dependency_overrides.clear()
-
-
-def bearer(token):
-    return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture
-def session_tokens(http):
-    http.post(f"{API}/auth/register", json={"name": "Maria Silva", **CREDENTIALS})
-    return http.post(f"{API}/auth/login", json=CREDENTIALS).json()["tokens"]
 
 
 def test_login_issues_a_working_access_token(http, session_tokens):
@@ -131,6 +100,7 @@ def test_logout_rejects_a_refresh_token_of_another_user(http, session_tokens):
 def reset_token_for(http, email):
     """Token como o enviado por e-mail, montado a partir do hash gravado no banco."""
     import asyncio
+
     from app.repository.user_repository import UserRepository
 
     async def stored_hash():

@@ -1,7 +1,8 @@
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+
 from app.models.resume_analysis import ResumeAnalysis
-from typing import Optional, List, Tuple
 from app.repository.base_repository import BaseRepository
 
 
@@ -10,11 +11,11 @@ class ResumeAnalysisRepository(BaseRepository[ResumeAnalysis]):
         super().__init__(ResumeAnalysis, session)
 
     async def get_by_user_id(
-        self, 
-        user_id: int, 
-        skip: int = 0, 
+        self,
+        user_id: int,
+        skip: int = 0,
         limit: int = 100
-    ) -> Tuple[List[ResumeAnalysis], int]:
+    ) -> tuple[list[ResumeAnalysis], int]:
         """
         Busca análises por user_id com paginação e count total
         """
@@ -38,10 +39,10 @@ class ResumeAnalysisRepository(BaseRepository[ResumeAnalysis]):
         return analyses, total_count
 
     async def get_by_id_and_user_id(
-        self, 
-        analysis_id: int, 
+        self,
+        analysis_id: int,
         user_id: int
-    ) -> Optional[ResumeAnalysis]:
+    ) -> ResumeAnalysis | None:
         """
         Busca análise por ID e user_id (verificação de ownership)
         """

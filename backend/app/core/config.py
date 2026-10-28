@@ -1,9 +1,11 @@
+from pathlib import Path
+from typing import Literal
+
+from fastapi_mail import ConnectionConfig
 from limits import parse as parse_limit
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Literal
-from fastapi_mail import ConnectionConfig
-from pathlib import Path
+
 
 class Settings(BaseSettings):
     # hide_input_in_errors: um erro de validação nunca imprime o valor recebido

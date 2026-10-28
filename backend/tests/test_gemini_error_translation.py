@@ -5,12 +5,11 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from google.genai import errors, types
+from pydantic import BaseModel
 
 from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.llm.client import GeminiClient, GenerationParams
 from app.llm.prompts import Prompt
-from pydantic import BaseModel
-
 from app.llm.responses import parse_structured_response
 
 SECRET = "projects/123/locations/us/apiKey=AIza-secret"

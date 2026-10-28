@@ -1,10 +1,15 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, Query
-from app.models.user import User
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+
 from app.api.v1.dependencies.rate_limit import limit_ai_generation
 from app.api.v1.dependencies.security import verify_token
-from app.services.interview_guide_services import InterviewGuideService
-from app.schemas.interview_guide_schema import InterviewGuideResponse, InterviewGuideListResponse, InterviewGuideDeleteResponse
 from app.api.v1.dependencies.services import get_interview_guide_service
+from app.models.user import User
+from app.schemas.interview_guide_schema import (
+    InterviewGuideDeleteResponse,
+    InterviewGuideListResponse,
+    InterviewGuideResponse,
+)
+from app.services.interview_guide_services import InterviewGuideService
 
 router = APIRouter()
 

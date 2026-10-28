@@ -1,20 +1,6 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from app.schemas.auth_schema import (
-    RegisterRequest,
-    LoginRequest, 
-    TokenResponse, 
-    MessageResponse, 
-    RefreshTokenResponse,
-    ForgotPasswordRequest,
-    ResetPasswordRequest,
-    LoginResponse,
-    LogoutRequest,
-)
-from app.api.v1.dependencies.security import oauth2_scheme, verify_token, verify_refresh_token
-from app.models.user import User
-from app.services.user_services import UserService
-from app.api.v1.dependencies.services import get_user_service
+
 from app.api.v1.dependencies.rate_limit import (
     limit_forgot_password,
     limit_login,
@@ -22,7 +8,21 @@ from app.api.v1.dependencies.rate_limit import (
     limit_register,
     limit_reset_password,
 )
-
+from app.api.v1.dependencies.security import oauth2_scheme, verify_refresh_token, verify_token
+from app.api.v1.dependencies.services import get_user_service
+from app.models.user import User
+from app.schemas.auth_schema import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    LoginResponse,
+    LogoutRequest,
+    MessageResponse,
+    RefreshTokenResponse,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+)
+from app.services.user_services import UserService
 
 router = APIRouter()
 

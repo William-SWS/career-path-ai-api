@@ -3,8 +3,8 @@ from fastapi import APIRouter
 from app.api.v1.routes import (
     auth_routes,
     check_routes,
-    interview_guide_routes,
     development_trail_routes,
+    interview_guide_routes,
     resume_analysis_routes,
     user_routes,
 )

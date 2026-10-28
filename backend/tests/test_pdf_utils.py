@@ -3,7 +3,7 @@ import io
 
 import pytest
 from fastapi import UploadFile
-from PyPDF2 import PdfWriter
+from pypdf import PdfWriter
 
 from app.core.exceptions import ValidationException
 from app.utils import pdf_utils

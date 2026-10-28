@@ -1,6 +1,8 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from app.schemas.base_schema import BaseMessageResponse
 import re
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.schemas.base_schema import BaseMessageResponse
 
 # O bcrypt só usa os primeiros 72 bytes: o que vier depois seria ignorado em silêncio.
 BCRYPT_MAX_PASSWORD_BYTES = 72
@@ -62,16 +64,14 @@ class RegisterRequest(BaseModel):
     def validate_password(cls, pwd):
         return validate_new_password(pwd)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=100)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenResponse(BaseModel):
@@ -85,8 +85,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     name: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginResponse(BaseModel):
@@ -114,9 +113,8 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("new_password")
     def validate_password(cls, pwd):
         return validate_new_password(pwd)
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MessageResponse(BaseMessageResponse):

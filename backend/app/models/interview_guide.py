@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, JSON
+from datetime import datetime
+
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.core.database import Base
-from datetime import datetime
 
 
 class InterviewGuide(Base):
@@ -20,4 +22,3 @@ class InterviewGuide(Base):
         self.user_id = user_id
         self.interview_guide = interview_guide
         self.created_at = created_at
-        

@@ -1,8 +1,8 @@
-from app.schemas.development_trail_schema import DevelopmentTrailRequest
-from app.llm.client import GenerationParams
-from app.llm.prompts import Prompt, load_system_prompt, untrusted_block
 import re
 
+from app.llm.client import GenerationParams
+from app.llm.prompts import Prompt, load_system_prompt, untrusted_block
+from app.schemas.development_trail_schema import DevelopmentTrailRequest
 
 DEVELOPMENT_TRAIL_PARAMS = GenerationParams(
     temperature=0.3, top_p=0.8, top_k=40, max_output_tokens=10000
@@ -60,33 +60,33 @@ def calculate_timeframe_months(timeframe: str) -> int:
         numbers = re.findall(r"\d+", timeframe)
         if numbers:
             return min(int(numbers[0]), 36)
-        return 6 
+        return 6
 
 
 def get_phases_structure(total_months: int) -> str:
     """Retorna a estrutura de fases baseada na duração total"""
 
     if total_months <= 3:
-        return """
-        FASE ÚNICA ({} meses): Desenvolvimento Acelerado
+        return f"""
+        FASE ÚNICA ({total_months} meses): Desenvolvimento Acelerado
         - Foco: Objetivos imediatos e habilidades mais críticas
         - Projetos: Pequenos e focados
         - Entrega: MVP do conhecimento necessário
-        """.format(total_months)
+        """
 
     elif total_months <= 6:
-        return """
+        return f"""
         FASE 1 (2-3 meses): Fundamentos Sólidos
-        FASE 2 ({} meses): Especialização Prática
+        FASE 2 ({total_months - 2} meses): Especialização Prática
         - Balance entre teoria e prática
         - Projetos intermediários
-        """.format(total_months - 2)
+        """
 
     else:  # 7+ meses
-        return """
+        return f"""
         FASE 1 (2-3 meses): Fundamentos Avançados
-        FASE 2 (3-4 meses): Especialização Técnica  
-        FASE 3 ({} meses): Aprofundamento e Projetos Complexos
+        FASE 2 (3-4 meses): Especialização Técnica
+        FASE 3 ({total_months - 5} meses): Aprofundamento e Projetos Complexos
         - Abordagem completa e aprofundada
         - Projetos de portfólio robustos
-        """.format(total_months - 5)
+        """

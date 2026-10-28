@@ -5,11 +5,14 @@ import sys
 from contextlib import asynccontextmanager
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
+from app.core.database import get_db
+from app.main import app
 
 pytestmark = pytest.mark.integration
 
@@ -59,3 +62,33 @@ async def open_sessions():
         yield async_sessionmaker(engine, class_=AsyncSession, autoflush=False)
     finally:
         await engine.dispose()
+
+
+API = "/api/v1"
+CREDENTIALS = {"email": "maria@example.com", "password": "Abcdef12"}
+
+
+def bearer(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def http():
+    # Uma sessão por requisição, sem pool: o TestClient roda em outro event loop.
+    engine = create_async_engine(settings.DATABASE_URI, poolclass=NullPool)
+    maker = async_sessionmaker(engine, class_=AsyncSession, autoflush=False)
+
+    async def session_per_request():
+        async with maker() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = session_per_request
+    with TestClient(app) as client:
+        yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def session_tokens(http):
+    http.post(f"{API}/auth/register", json={"name": "Maria Silva", **CREDENTIALS})
+    return http.post(f"{API}/auth/login", json=CREDENTIALS).json()["tokens"]

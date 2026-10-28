@@ -1,17 +1,18 @@
-from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional
-from datetime import datetime
-from app.schemas.base_schema import BaseMessageResponse
 import re
+from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, field_validator
+
+from app.schemas.base_schema import BaseMessageResponse
 
 
 class UserUpdateRequest(BaseModel):
-    email: Optional[EmailStr] = None
-    name: Optional[str] = None
+    email: EmailStr | None = None
+    name: str | None = None
 
     def has_at_least_one_field(self):
         return any([self.name is not None, self.email is not None])
-    
+
     @field_validator("name")
     def validate_name(cls, name):
         if name is None:

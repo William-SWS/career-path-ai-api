@@ -1,20 +1,20 @@
-from pydantic import BaseModel
-from typing import Dict, Any, List
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict
 
 
 class ResumeAnalysisResponse(BaseModel):
     id: int
     original_filename: str
-    analysis_result: Dict[str, Any]
+    analysis_result: dict[str, Any]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ResumeAnalysisListResponse(BaseModel):
-    analyses: List[ResumeAnalysisResponse]
+    analyses: list[ResumeAnalysisResponse]
     total_count: int
 
 

@@ -16,7 +16,6 @@ from app.core.config import settings
 from app.core.exceptions import RateLimitException, ServiceUnavailableException
 from app.core.logging_config import logger
 
-
 # Depois de uma falha do storage, não o consultamos por este tempo. Sem isso, cada requisição
 # esperaria os timeouts do Redis (medido: ~3 s) durante toda a queda.
 _STORAGE_COOLDOWN_SECONDS = 10

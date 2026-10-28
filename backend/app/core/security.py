@@ -1,13 +1,14 @@
-from app.core.config import settings
-from app.models.user import User
-from app.models.token_blacklist import TokenBlacklist
+import uuid
+from datetime import UTC, datetime, timedelta
+from enum import Enum
+
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta, timezone
-from jose import jwt, JWTError
-from enum import Enum
-import uuid
+
+from app.core.config import settings
+from app.models.token_blacklist import TokenBlacklist
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -36,7 +37,7 @@ def create_token(
         "sub": str(user_id),
         "type": token_type.value,
         "jti": uuid.uuid4().hex,  # token único: a blacklist guarda a string inteira
-        "exp": datetime.now(timezone.utc) + token_duration,
+        "exp": datetime.now(UTC) + token_duration,
     }
     encoded_jwt = jwt.encode(dict_info, settings.SECRET_KEY, settings.ALGORITHM)
     return encoded_jwt
@@ -60,11 +61,11 @@ async def add_token_to_blacklist(token: str, db: AsyncSession):
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        expires_at = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        
+        expires_at = datetime.fromtimestamp(payload["exp"], tz=UTC)
+
     except JWTError:
         # Se o token é inválido ou expirado, usa expiração padrão
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
-    
+        expires_at = datetime.now(UTC) + timedelta(hours=24)
+
     db.add(TokenBlacklist(token=token, expires_at=expires_at))
     await db.flush()

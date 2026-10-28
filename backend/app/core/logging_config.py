@@ -1,7 +1,6 @@
-from datetime import datetime
 import logging
 import os
-
+from datetime import datetime
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logs")
 LOG_FILE = os.path.join(LOG_DIR, f"app_{datetime.now().strftime('%Y%m%d')}.log")
@@ -28,7 +27,7 @@ def setup_logging(log_file=LOG_FILE):
     logging.basicConfig(
         level=logging.DEBUG,
         handlers=[file_handler, console_handler]
-    )    
+    )
 
     return logging.getLogger("app")
 

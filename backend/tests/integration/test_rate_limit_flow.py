@@ -7,7 +7,7 @@ from app.llm.client import get_llm_client
 from app.main import app
 from app.schemas.ai_outputs import DevelopmentTrailOutput
 from tests.fakes import FakeLLM, sample_output
-from tests.integration.test_auth_flow import API, CREDENTIALS, bearer, http, session_tokens  # noqa: F401
+from tests.integration.conftest import API, CREDENTIALS, bearer
 
 pytestmark = pytest.mark.integration
 

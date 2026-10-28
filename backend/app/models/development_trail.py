@@ -1,9 +1,11 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.core.database import Base
 from datetime import datetime
 from enum import Enum
+
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+from app.core.database import Base
 
 
 class DevelopmentTrailStatus(str, Enum):

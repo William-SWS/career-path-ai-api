@@ -1,18 +1,19 @@
 import asyncio
 import random
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Awaitable, Callable, Protocol
+from typing import Protocol
 
 import httpx
 from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel
 
-from app.llm.prompts import Prompt
 from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
+from app.llm.prompts import Prompt
 
 # Margem entre o timeout HTTP do SDK e o limite total: o do SDK vale por fase da
 # conexão, então o limite externo garante um teto para a chamada inteira.
@@ -102,17 +103,17 @@ class GeminiClient:
             async with asyncio.timeout(self.timeout_seconds + _HARD_TIMEOUT_MARGIN_SECONDS):
                 response, attempts = await self._generate_with_retry(prompt.user, config)
         except errors.APIError as exc:
-            raise self._translate_api_error(exc)
-        except (asyncio.TimeoutError, httpx.TimeoutException):
+            raise self._translate_api_error(exc) from exc
+        except (TimeoutError, httpx.TimeoutException) as exc:
             logger.error("Timeout de %ss ao chamar o Gemini", self.timeout_seconds)
             raise ExternalServiceException(
                 "O serviço de IA demorou demais para responder", code="ai_timeout"
-            )
-        except httpx.TransportError:
+            ) from exc
+        except httpx.TransportError as exc:
             logger.exception("Falha de rede ao chamar o Gemini")
             raise ExternalServiceException(
                 "Serviço de IA indisponível no momento", code="ai_provider_error"
-            )
+            ) from exc
 
         self._log_usage(response, attempts, time.perf_counter() - started)
         return self._extract_text(response)

@@ -1,7 +1,8 @@
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+
 from app.models.interview_guide import InterviewGuide
-from typing import Optional, List, Tuple
 from app.repository.base_repository import BaseRepository
 
 
@@ -14,7 +15,7 @@ class InterviewGuideRepository(BaseRepository[InterviewGuide]):
         user_id: int,
         skip: int = 0,
         limit: int = 100
-    ) -> Tuple[List[InterviewGuide], int]:
+    ) -> tuple[list[InterviewGuide], int]:
         """
         Busca guias de entrevista por user_id com paginação e count total
         """
@@ -34,12 +35,12 @@ class InterviewGuideRepository(BaseRepository[InterviewGuide]):
         total_count = count_result.scalar_one()
 
         return interview_guides, total_count
-    
+
     async def get_by_id_and_user_id(
         self,
         interview_guide_id: int,
         user_id: int
-    ) -> Optional[InterviewGuide]:
+    ) -> InterviewGuide | None:
         """
         Busca guia de entrevista por ID e user_id
         """

@@ -1,23 +1,25 @@
+from datetime import UTC, datetime
+
 from fastapi import UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import release_connection
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
 from app.llm.responses import parse_structured_response
-from app.schemas.ai_outputs import InterviewGuideOutput
 from app.models.user import User
+from app.repository.interview_guide_repository import InterviewGuideRepository
+from app.schemas.ai_outputs import InterviewGuideOutput
+from app.schemas.interview_guide_schema import (
+    InterviewGuideDeleteResponse,
+    InterviewGuideListResponse,
+    InterviewGuideResponse,
+)
 from app.utils.interview_guide_utils import (
     INTERVIEW_GUIDE_PARAMS,
     build_interview_guide_prompt,
 )
-from app.schemas.interview_guide_schema import (
-    InterviewGuideResponse, 
-    InterviewGuideListResponse,
-    InterviewGuideDeleteResponse
-)
 from app.utils.pdf_utils import check_pdf
-from app.repository.interview_guide_repository import InterviewGuideRepository
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone
 
 
 def _guide_not_found() -> NotFoundException:
@@ -50,7 +52,7 @@ class InterviewGuideService:
         interview_guide = await self.interview_guide_repository.create(
             user_id=current_user.id,
             interview_guide=interview_guide_result,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC)
         )
 
         await self.db.commit()
@@ -80,7 +82,7 @@ class InterviewGuideService:
         self, interview_guide_id: int, current_user: User
     ) -> InterviewGuideResponse:
         """
-        Serviço para obter um guia de entrevista específico do usuário        
+        Serviço para obter um guia de entrevista específico do usuário
         """
         interview_guide = await self.interview_guide_repository.get_by_id_and_user_id(
             interview_guide_id=interview_guide_id,

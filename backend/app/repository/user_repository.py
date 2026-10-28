@@ -1,16 +1,17 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import UTC, datetime
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.user import User
-from typing import Optional
 from app.repository.base_repository import BaseRepository
-from datetime import datetime, timezone
 
 
 class UserRepository(BaseRepository[User]):
     def __init__(self, session: AsyncSession):
         super().__init__(User, session)
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> User | None:
         """
         Busca o usuário por email
         """
@@ -18,15 +19,15 @@ class UserRepository(BaseRepository[User]):
             select(User).where(User.email == email)
         )
         return result.scalar_one_or_none()
-    
+
     async def email_exists(self, email: str) -> bool:
         """
         Verifica se email já existe
         """
         user = await self.get_by_email(email)
         return user is not None
-    
-    async def update_password(self, user_id: int, hashed_password: str) -> Optional[User]:
+
+    async def update_password(self, user_id: int, hashed_password: str) -> User | None:
         """
         Atualiza apenas a senha do usuário
         """
@@ -35,7 +36,7 @@ class UserRepository(BaseRepository[User]):
             return None
 
         user.password_hash = hashed_password
-        user.updated_at = datetime.now(timezone.utc)
+        user.updated_at = datetime.now(UTC)
 
         await self.session.flush()
         return user

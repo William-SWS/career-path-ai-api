@@ -22,4 +22,4 @@ def parse_structured_response(schema: type[T], text: str) -> T:
         logger.error("Resposta do modelo fora do schema %s: %s", schema.__name__, problems)
         raise ExternalServiceException(
             "O serviço de IA devolveu uma resposta inválida", code="ai_invalid_response"
-        )
+        ) from exc

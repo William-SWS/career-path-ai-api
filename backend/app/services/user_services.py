@@ -1,4 +1,7 @@
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.email import send_password_reset_email
 from app.core.exceptions import (
     AuthenticationException,
     ConflictException,
@@ -6,7 +9,6 @@ from app.core.exceptions import (
     PermissionDeniedException,
     ValidationException,
 )
-from app.models.user import User
 from app.core.security import (
     TokenType,
     add_token_to_blacklist,
@@ -14,31 +16,30 @@ from app.core.security import (
     create_token,
     is_token_blacklisted,
 )
-from app.core.email import send_password_reset_email
+from app.models.user import User
+from app.repository.user_repository import UserRepository
+from app.schemas.auth_schema import (
+    ForgotPasswordRequest,
+    LoginRequest,
+    LoginResponse,
+    MessageResponse,
+    RefreshTokenResponse,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+    UserResponse,
+)
+from app.schemas.user_schema import (
+    UserDeleteRequest,
+    UserGetResponse,
+    UserUpdateRequest,
+    UserUpdateResponse,
+)
 from app.utils.token_utils import (
     get_token_subject,
     read_reset_password_token,
     reset_token_matches_password,
 )
-from app.schemas.user_schema import (
-    UserUpdateRequest,
-    UserUpdateResponse,
-    UserDeleteRequest,
-    UserGetResponse
-)
-from app.schemas.auth_schema import (
-    RegisterRequest,
-    MessageResponse,
-    TokenResponse,
-    RefreshTokenResponse,
-    LoginRequest,
-    ForgotPasswordRequest,
-    ResetPasswordRequest,
-    LoginResponse,
-    UserResponse,
-)
-from app.repository.user_repository import UserRepository
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class UserService:

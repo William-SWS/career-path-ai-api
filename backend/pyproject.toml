@@ -17,7 +17,7 @@ dependencies = [
     "openai>=2.3.0",
     "passlib>=1.7.4",
     "psycopg2-binary>=2.9.11",
-    "pypdf2>=3.0.1",
+    "pypdf>=5",
     "python-dotenv>=1.1.1",
     "python-jose>=3.5.0",
     "python-multipart>=0.0.20",
@@ -27,8 +27,34 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.2.0",
+    "ruff>=0.17.3",
 ]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = ["integration: precisa de um Postgres real (defina TEST_DATABASE_URL)"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["migrations"]  # geradas pelo Alembic
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+# Tamanho de linha é do formatador (ruff format); E501 só geraria ruído em strings longas de prompt.
+ignore = [
+    "E501",
+    "UP042",  # (str, Enum) -> StrEnum muda o str() dos valores
+    "UP046", "UP047",  # sintaxe nova de genéricos: só estilo
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# Depends/File/Form/Query nos defaults são o idioma do FastAPI.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.File", "fastapi.Form", "fastapi.Query"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/models/__init__.py" = ["F401"]  # os imports registram as tabelas para o Alembic
+"tests/conftest.py" = ["E402"]       # o ambiente falso é definido antes de importar a app
+"tests/**" = ["E731"]                # lambdas curtas como stubs
+# Os scripts de avaliação definem variáveis de ambiente antes de importar a aplicação.
+"evals/run_eval.py" = ["E402"]

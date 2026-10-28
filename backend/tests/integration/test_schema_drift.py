@@ -4,9 +4,9 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine
 
+import app.models  # noqa: F401  (registra as tabelas no metadata)
 from app.core.config import settings
 from app.core.database import Base
-import app.models  # noqa: F401  (registra as tabelas no metadata)
 
 pytestmark = pytest.mark.integration
 

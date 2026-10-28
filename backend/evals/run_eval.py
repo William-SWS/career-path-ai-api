@@ -32,8 +32,15 @@ from dotenv import dotenv_values  # noqa: E402
 from app.core.exceptions import AppException  # noqa: E402
 from app.llm.client import GeminiClient  # noqa: E402
 from app.llm.responses import parse_structured_response  # noqa: E402
-from app.schemas.ai_outputs import DevelopmentTrailOutput, InterviewGuideOutput, ResumeAnalysisOutput  # noqa: E402
-from app.utils.development_trail_utils import DEVELOPMENT_TRAIL_PARAMS, create_adaptive_development_trail_prompt  # noqa: E402
+from app.schemas.ai_outputs import (  # noqa: E402
+    DevelopmentTrailOutput,
+    InterviewGuideOutput,
+    ResumeAnalysisOutput,
+)
+from app.utils.development_trail_utils import (  # noqa: E402
+    DEVELOPMENT_TRAIL_PARAMS,
+    create_adaptive_development_trail_prompt,
+)
 from app.utils.interview_guide_utils import INTERVIEW_GUIDE_PARAMS, build_interview_guide_prompt  # noqa: E402
 from app.utils.resume_analysis_utils import RESUME_ANALYSIS_PARAMS, build_resume_analysis_prompt  # noqa: E402
 from evals.cases import CASES  # noqa: E402

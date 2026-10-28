@@ -3,7 +3,11 @@ import copy
 
 import pytest
 
-from app.schemas.ai_outputs import DevelopmentTrailOutput, InterviewGuideOutput, ResumeAnalysisOutput
+from app.schemas.ai_outputs import (
+    DevelopmentTrailOutput,
+    InterviewGuideOutput,
+    ResumeAnalysisOutput,
+)
 from app.utils.development_trail_utils import calculate_timeframe_months
 from evals.cases import CASES
 from evals.checks import check_guide, check_resume, check_trail, is_portuguese

@@ -1,12 +1,13 @@
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import os
 
-from app.core.config import settings
-from app.core.tasks import start_token_cleanup_scheduler, scheduler
-from app.core.exception_handlers import register_exception_handlers
 from app.api.v1.routes.router import router as v1_router
+from app.core.config import settings
+from app.core.exception_handlers import register_exception_handlers
+from app.core.tasks import scheduler, start_token_cleanup_scheduler
 
 os.environ["GRPC_VERBOSITY"] = "ERROR"
 os.environ["GRPC_POLL_STRATEGY"] = "poll"

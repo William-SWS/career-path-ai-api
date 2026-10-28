@@ -1,23 +1,26 @@
+from datetime import UTC, datetime
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import release_connection
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
 from app.llm.responses import parse_structured_response
+from app.models.user import User
+from app.repository.development_trail_repository import DevelopmentTrailRepository
 from app.schemas.ai_outputs import DevelopmentTrailOutput
+from app.schemas.development_trail_schema import (
+    DevelopmentTrailDeleteResponse,
+    DevelopmentTrailListResponse,
+    DevelopmentTrailRequest,
+    DevelopmentTrailResponse,
+    DevelopmentTrailUpdateRequest,
+)
 from app.utils.development_trail_utils import (
     DEVELOPMENT_TRAIL_PARAMS,
     create_adaptive_development_trail_prompt,
 )
-from app.schemas.development_trail_schema import (
-    DevelopmentTrailRequest,
-    DevelopmentTrailResponse,
-    DevelopmentTrailListResponse,
-    DevelopmentTrailUpdateRequest,
-    DevelopmentTrailDeleteResponse
-)
-from app.models.user import User
-from app.repository.development_trail_repository import DevelopmentTrailRepository
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone
+
 from ..models.development_trail import DevelopmentTrailStatus
 
 
@@ -60,8 +63,8 @@ class DevelopmentTrailService:
             user_id=current_user.id,
             development_trail=development_trail_result,
             status=DevelopmentTrailStatus.IN_PROGRESS.value,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC)
         )
 
         await self.db.commit()

@@ -1,7 +1,8 @@
-from fastapi import UploadFile
-from PyPDF2 import PdfReader
-from PyPDF2.errors import PyPdfError
 import io
+
+from fastapi import UploadFile
+from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
 from app.core.exceptions import ValidationException
 
@@ -42,8 +43,8 @@ async def check_pdf(file: UploadFile) -> str:
             for page_text in (page.extract_text() for page in reader.pages)
             if page_text
         )
-    except PyPdfError:
-        raise ValidationException("Não foi possível ler o PDF", code="unreadable_pdf")
+    except PyPdfError as exc:
+        raise ValidationException("Não foi possível ler o PDF", code="unreadable_pdf") from exc
 
     if not text.strip():
         raise ValidationException(

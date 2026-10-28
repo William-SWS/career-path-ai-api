@@ -1,9 +1,10 @@
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update
+
 from app.models.development_trail import DevelopmentTrail
 from app.repository.base_repository import BaseRepository
-from typing import Optional, List, Tuple
-from datetime import datetime, timezone
 
 
 class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
@@ -15,7 +16,7 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
         user_id: int,
         skip: int = 0,
         limit: int = 100
-    ) -> Tuple[List[DevelopmentTrail], int]:
+    ) -> tuple[list[DevelopmentTrail], int]:
         """
         Busca trilhas de desenvolvimento por user_id com paginação e count total
         """
@@ -24,7 +25,7 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
             .where(DevelopmentTrail.user_id == user_id)
             .order_by(DevelopmentTrail.created_at.desc())
             .offset(skip)
-            .limit(limit) 
+            .limit(limit)
         )
         development_trails = result.scalars().all()
 
@@ -35,12 +36,12 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
         total_count = count_result.scalar_one()
 
         return development_trails, total_count
-    
+
     async def get_by_id_and_user_id(
         self,
         development_trail_id: int,
         user_id: int
-    ) -> Optional[DevelopmentTrail]:
+    ) -> DevelopmentTrail | None:
         """
         Busca trilha de desenvolvimento por ID e user_id
         """
@@ -52,7 +53,7 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
             )
         )
         return result.scalar_one_or_none()
-    
+
     async def update_status(
         self,
         development_trail_id: int,
@@ -63,11 +64,10 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
             .where(DevelopmentTrail.id == development_trail_id)
             .values(
                 status=status,
-                updated_at=datetime.now(timezone.utc)
+                updated_at=datetime.now(UTC)
             )
             .returning(DevelopmentTrail)
         )
         result = await self.session.execute(query)
         updated_trail = result.scalar_one()
         return updated_trail
-    

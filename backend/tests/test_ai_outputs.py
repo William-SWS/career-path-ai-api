@@ -1,7 +1,11 @@
 """As chaves dos schemas são o contrato com o banco e o frontend: mudar uma é mudar os dois."""
 import pytest
 
-from app.schemas.ai_outputs import DevelopmentTrailOutput, InterviewGuideOutput, ResumeAnalysisOutput
+from app.schemas.ai_outputs import (
+    DevelopmentTrailOutput,
+    InterviewGuideOutput,
+    ResumeAnalysisOutput,
+)
 
 
 @pytest.mark.parametrize(

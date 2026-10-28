@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -14,7 +14,7 @@ from app.core.exceptions import (
     PermissionDeniedException,
     ValidationException,
 )
-from app.core.security import bcrypt_context
+from app.core.security import TokenType, bcrypt_context, create_token
 from app.schemas.auth_schema import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -22,9 +22,8 @@ from app.schemas.auth_schema import (
     ResetPasswordRequest,
 )
 from app.schemas.user_schema import UserDeleteRequest, UserUpdateRequest
-from app.services.user_services import UserService
-from app.core.security import TokenType, create_token
 from app.services import user_services
+from app.services.user_services import UserService
 from app.utils.token_utils import create_reset_password_token
 from tests.fakes import FakeSession
 
@@ -74,8 +73,8 @@ def make_user(id=1, email="maria@example.com"):
         email=email,
         name="Maria Silva",
         password_hash=PASSWORD_HASH,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
 
@@ -389,7 +388,7 @@ def test_only_the_latest_reset_email_matters_after_a_reset():
 def test_legacy_reset_token_without_password_fingerprint_is_rejected():
     me = make_user()
     legacy = jwt.encode(
-        {"sub": me.email, "type": "reset_password", "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+        {"sub": me.email, "type": "reset_password", "exp": datetime.now(UTC) + timedelta(hours=1)},
         settings.SECRET_KEY, settings.ALGORITHM,
     )
 

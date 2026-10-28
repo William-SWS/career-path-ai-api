@@ -5,12 +5,15 @@ import hashlib
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
-from limits.errors import StorageError
 from limits.aio.storage import MemoryStorage
+from limits.errors import StorageError
 from limits.storage import storage_from_string
 
 from app.api.v1.dependencies.rate_limit import (
-    client_ip, limit_ai_generation, limit_login, limit_register,
+    client_ip,
+    limit_ai_generation,
+    limit_login,
+    limit_register,
 )
 from app.api.v1.dependencies.security import verify_token
 from app.core.config import settings
@@ -280,6 +283,7 @@ def test_register_fails_open_when_the_limiter_storage_is_down(mini_app):
 @pytest.mark.parametrize("bad", ["", "5", "five/minute", "5/fortnight", "0/minute"])
 def test_invalid_limit_strings_are_rejected_at_startup(bad):
     from pydantic import ValidationError
+
     from app.core.config import Settings
 
     with pytest.raises(ValidationError):
