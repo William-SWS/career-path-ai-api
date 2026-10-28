@@ -8,8 +8,13 @@ services:
       - "8000:8000"
     env_file:
       - ./backend/.env.docker
+    environment:
+      # Dentro da rede do compose o Redis é alcançado pelo nome do serviço.
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -31,6 +36,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: career-path-redis
+    # Só contadores de rate limit: nada precisa sobreviver a um restart.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   frontend:
     container_name: career-path-frontend

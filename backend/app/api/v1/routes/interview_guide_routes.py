@@ -1,5 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, Query
 from app.models.user import User
+from app.api.v1.dependencies.rate_limit import limit_ai_generation
 from app.api.v1.dependencies.security import verify_token
 from app.services.interview_guide_services import InterviewGuideService
 from app.schemas.interview_guide_schema import InterviewGuideResponse, InterviewGuideListResponse, InterviewGuideDeleteResponse
@@ -8,7 +9,7 @@ from app.api.v1.dependencies.services import get_interview_guide_service
 router = APIRouter()
 
 
-@router.post("/", response_model=InterviewGuideResponse)
+@router.post("/", response_model=InterviewGuideResponse, dependencies=[Depends(limit_ai_generation)])
 async def generate_interview_guide(
     file: UploadFile = File(...),
     job_description: str = Form(..., min_length=1, max_length=5000),

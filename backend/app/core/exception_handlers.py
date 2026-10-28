@@ -42,6 +42,7 @@ def register_exception_handlers(app):
             status_code=exc.status_code,
             message=exc.message,
             code=exc.code,
+            headers=exc.headers,
         )
     
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Depends, Query
 from app.models.user import User
 from app.services.resume_analysis_services import ResumeAnalysisService
+from app.api.v1.dependencies.rate_limit import limit_ai_generation
 from app.api.v1.dependencies.security import verify_token
 from app.schemas.resume_analysis_schema import ResumeAnalysisResponse, ResumeAnalysisListResponse, ResumeAnalysisDeleteResponse
 from app.api.v1.dependencies.services import get_resume_analysis_service
@@ -9,7 +10,7 @@ from app.api.v1.dependencies.services import get_resume_analysis_service
 router = APIRouter()
 
 
-@router.post("/", response_model=ResumeAnalysisResponse)
+@router.post("/", response_model=ResumeAnalysisResponse, dependencies=[Depends(limit_ai_generation)])
 async def analyze_resume(
     file: UploadFile = File(...),
     current_user: User = Depends(verify_token),

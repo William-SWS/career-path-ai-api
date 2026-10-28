@@ -13,6 +13,7 @@ dependencies = [
     "fastapi-mail>=1.5.8",
     "google-genai>=2,<3",
     "httpx>=0.28",
+    "limits[async-redis]>=5,<6",
     "openai>=2.3.0",
     "passlib>=1.7.4",
     "psycopg2-binary>=2.9.11",

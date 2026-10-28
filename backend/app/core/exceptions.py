@@ -3,9 +3,12 @@ class AppException(Exception):
     status_code: int = 400
     default_code: str = "application_error"
 
-    def __init__(self, message: str, code: str | None = None):
+    def __init__(
+        self, message: str, code: str | None = None, headers: dict[str, str] | None = None
+    ):
         self.message = message
         self.code = code or self.default_code
+        self.headers = headers
         super().__init__(message)
 
 
@@ -41,6 +44,13 @@ class AuthenticationException(AppException):
 class RateLimitException(AppException):
     status_code = 429
     default_code = "rate_limited"
+
+
+class ServiceUnavailableException(AppException):
+    """Uma dependência nossa (ex.: Redis do rate limit) está fora e a operação exige que esteja."""
+
+    status_code = 503
+    default_code = "service_unavailable"
 
 
 class ExternalServiceException(AppException):

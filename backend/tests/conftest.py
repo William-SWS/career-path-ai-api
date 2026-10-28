@@ -46,3 +46,13 @@ from app.main import app
 def client() -> TestClient:
     # Sem `with`: o lifespan (scheduler de limpeza de tokens) não é executado.
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limiter():
+    """Contadores zerados a cada teste: o limitador padrão em memória é um singleton do processo."""
+    from app.core.rate_limit import get_rate_limiter
+
+    get_rate_limiter.cache_clear()
+    yield
+    get_rate_limiter.cache_clear()

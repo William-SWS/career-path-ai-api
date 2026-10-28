@@ -8,6 +8,7 @@ from app.schemas.development_trail_schema import (
 )
 from app.services.development_trail_services import DevelopmentTrailService
 from app.models.user import User
+from app.api.v1.dependencies.rate_limit import limit_ai_generation
 from app.api.v1.dependencies.security import verify_token
 from app.api.v1.dependencies.services import get_development_trail_service
 
@@ -15,7 +16,7 @@ from app.api.v1.dependencies.services import get_development_trail_service
 router = APIRouter()
 
 
-@router.post("/", response_model=DevelopmentTrailResponse)
+@router.post("/", response_model=DevelopmentTrailResponse, dependencies=[Depends(limit_ai_generation)])
 async def generate_development_trail(
     user_data: DevelopmentTrailRequest,
     current_user: User = Depends(verify_token),
