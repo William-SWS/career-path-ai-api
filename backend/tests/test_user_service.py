@@ -285,7 +285,7 @@ def test_logout_blacklists_the_token_it_received():
 
     run(service.logout(token, make_user()))
 
-    assert [entry.token for entry in service.db.added] == [token]
+    assert revoked(service) == [jti(token)]
 
 
 def test_logout_does_not_report_success_when_the_blacklist_write_fails():
@@ -306,7 +306,11 @@ def stub_blacklist(monkeypatch, already_revoked=()):
 
 
 def revoked(service):
-    return [entry.token for entry in service.db.added]
+    return [entry.jti for entry in service.db.added]
+
+
+def jti(token):
+    return jwt.get_unverified_claims(token)["jti"]
 
 
 def test_logout_revokes_access_and_refresh_token_in_one_commit(monkeypatch):
@@ -317,7 +321,7 @@ def test_logout_revokes_access_and_refresh_token_in_one_commit(monkeypatch):
 
     run(service.logout(access, me, refresh))
 
-    assert revoked(service) == [access, refresh]
+    assert revoked(service) == [jti(access), jti(refresh)]
     assert service.db.commits == 1
 
 
@@ -329,7 +333,7 @@ def test_logout_without_refresh_token_revokes_only_the_access_token(monkeypatch)
 
     run(service.logout(access, me))
 
-    assert revoked(service) == [access]
+    assert revoked(service) == [jti(access)]
 
 
 @pytest.mark.parametrize(
@@ -349,7 +353,7 @@ def test_logout_succeeds_when_the_refresh_token_has_nothing_to_revoke(monkeypatc
 
     run(service.logout(access, me, unusable))
 
-    assert revoked(service) == [access]
+    assert revoked(service) == [jti(access)]
     assert service.db.commits == 1
 
 
@@ -361,7 +365,7 @@ def test_logout_is_idempotent_for_an_already_revoked_refresh_token(monkeypatch):
 
     run(service.logout(access, me, refresh))
 
-    assert revoked(service) == [access]
+    assert revoked(service) == [jti(access)]
 
 
 def test_logout_rejects_a_refresh_token_of_another_user_and_revokes_nothing(monkeypatch):

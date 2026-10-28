@@ -53,34 +53,42 @@ def create_token(
         "sub": str(user_id),
         "type": token_type.value,
         "pwd": password_fingerprint(password_hash),
-        "jti": uuid.uuid4().hex,  # token único: a blacklist guarda a string inteira
+        "jti": uuid.uuid4().hex,  # identifica o token; a blacklist guarda só isto
         "exp": datetime.now(UTC) + token_duration,
     }
     encoded_jwt = jwt.encode(dict_info, settings.SECRET_KEY, settings.ALGORITHM)
     return encoded_jwt
 
 
+def _revocation_claims(token: str) -> tuple[str, datetime] | None:
+    """(jti, expiração) de um token válido; None se ele for inválido, expirado ou sem `jti`."""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return str(payload["jti"]), datetime.fromtimestamp(payload["exp"], tz=UTC)
+    except (JWTError, KeyError):
+        return None
+
+
 async def is_token_blacklisted(token: str, db: AsyncSession) -> bool:
     """
-    Verifica se o token está na blacklist
+    Verifica se o token foi revogado. Um token inválido ou expirado não está "revogado": ele
+    já é recusado pela validação, antes desta consulta.
     """
-    result = await db.execute(select(TokenBlacklist).where(TokenBlacklist.token == token))
-    blacklisted_token = result.scalar_one_or_none()
-    return blacklisted_token is not None
+    claims = _revocation_claims(token)
+    if claims is None:
+        return False
+    result = await db.execute(select(TokenBlacklist.id).where(TokenBlacklist.jti == claims[0]))
+    return result.first() is not None
 
 
-async def add_token_to_blacklist(token: str, db: AsyncSession):
+async def add_token_to_blacklist(token: str, db: AsyncSession) -> None:
     """
-    Adiciona token à blacklist. Quem chama é responsável pelo commit.
+    Revoga o token, guardando só o `jti` até a expiração dele. Um token inválido ou já
+    expirado não precisa de revogação e é ignorado. Quem chama é responsável pelo commit.
     """
-    try:
-        # Tenta decodificar o token para pegar a expiração real
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        expires_at = datetime.fromtimestamp(payload["exp"], tz=UTC)
+    claims = _revocation_claims(token)
+    if claims is None:
+        return
 
-    except JWTError:
-        # Se o token é inválido ou expirado, usa expiração padrão
-        expires_at = datetime.now(UTC) + timedelta(hours=24)
-
-    db.add(TokenBlacklist(token=token, expires_at=expires_at))
+    db.add(TokenBlacklist(jti=claims[0], expires_at=claims[1]))
     await db.flush()

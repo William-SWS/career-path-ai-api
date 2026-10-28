@@ -8,22 +8,22 @@ from app.core.database import Base
 
 
 class TokenBlacklist(Base):
+    """Tokens revogados. Guarda só o `jti` (identificador do token), nunca o JWT."""
+
     __tablename__ = "token_blacklist"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-
-    # nullable=True explícito: é o que o banco tem hoje (o código sempre preenche). Tornar
-    # estas colunas NOT NULL é uma migration à parte.
-    token: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=True)
+    jti: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
+    # Depois de expires_at o token já seria recusado pela expiração: a linha pode ser apagada.
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=func.now(), nullable=True
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
-    def __init__(self, token: str, expires_at: datetime):
-        # Grante que expires_at tem timezone
+    def __init__(self, jti: str, expires_at: datetime):
+        # Garante que expires_at tem timezone
         if expires_at.tzinfo is None:
             self.expires_at = expires_at.replace(tzinfo=UTC)
         else:
             self.expires_at = expires_at
-        self.token = token
+        self.jti = jti

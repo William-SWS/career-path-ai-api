@@ -113,7 +113,7 @@ def test_refresh_endpoint_requires_a_token(client):
 
 def test_every_token_is_unique_even_when_issued_in_the_same_second():
     # Sem jti, dois logins no mesmo segundo gerariam a mesma string, e revogar
-    # um token (a blacklist guarda a string) revogaria o outro.
+    # um token (a blacklist guarda o jti) revogaria o outro.
     assert create_token(1, "hash") != create_token(1, "hash")
     assert create_token(1, "hash", TokenType.REFRESH) != create_token(1, "hash", TokenType.REFRESH)
 
