@@ -1,4 +1,3 @@
-import hashlib
 import hmac
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
@@ -7,7 +6,7 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import TokenType
+from app.core.security import TokenType, password_fingerprint
 from app.models.token_blacklist import TokenBlacklist
 
 
@@ -36,13 +35,6 @@ def get_token_subject(token: str, expected_type: TokenType) -> str | None:
         return decode_jwt_token(token, expected_type).get("sub")
     except JWTError:
         return None
-
-
-def password_fingerprint(password_hash: str) -> str:
-    """HMAC do hash da senha: muda quando a senha muda e não revela o hash."""
-    return hmac.new(
-        settings.SECRET_KEY.encode(), password_hash.encode(), hashlib.sha256
-    ).hexdigest()[:32]
 
 
 def create_reset_password_token(email: str, password_hash: str) -> str:

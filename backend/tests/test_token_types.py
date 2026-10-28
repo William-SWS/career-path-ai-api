@@ -6,7 +6,7 @@ import pytest
 from jose import JWTError, jwt
 
 from app.core.config import settings
-from app.core.security import TokenType, create_token
+from app.core.security import TokenType, create_token, password_fingerprint
 from app.utils.token_utils import create_reset_password_token, decode_jwt_token
 
 API = "/api/v1"
@@ -17,30 +17,30 @@ def sign(claims: dict) -> str:
 
 
 def expired_token(token_type: TokenType) -> str:
-    return create_token(1, token_type, token_duration=timedelta(seconds=-5))
+    return create_token(1, "hash", token_type, token_duration=timedelta(seconds=-5))
 
 
 def test_tokens_carry_their_type():
     claims = lambda t: jwt.get_unverified_claims(t)
 
-    assert claims(create_token(1))["type"] == "access"
-    assert claims(create_token(1, TokenType.REFRESH))["type"] == "refresh"
+    assert claims(create_token(1, "hash"))["type"] == "access"
+    assert claims(create_token(1, "hash", TokenType.REFRESH))["type"] == "refresh"
     assert claims(create_reset_password_token("a@b.co", "hash"))["type"] == "reset_password"
 
 
 def test_refresh_token_outlives_access_token():
     exp = lambda t: jwt.get_unverified_claims(t)["exp"]
 
-    assert exp(create_token(1, TokenType.REFRESH)) > exp(create_token(1))
+    assert exp(create_token(1, "hash", TokenType.REFRESH)) > exp(create_token(1, "hash"))
 
 
 @pytest.mark.parametrize(
     "token, expected",
     [
-        (create_token(1, TokenType.REFRESH), TokenType.ACCESS),
-        (create_token(1), TokenType.REFRESH),
+        (create_token(1, "hash", TokenType.REFRESH), TokenType.ACCESS),
+        (create_token(1, "hash"), TokenType.REFRESH),
         (create_reset_password_token("a@b.co", "hash"), TokenType.ACCESS),
-        (create_token(1), TokenType.RESET_PASSWORD),
+        (create_token(1, "hash"), TokenType.RESET_PASSWORD),
     ],
     ids=["refresh-as-access", "access-as-refresh", "reset-as-access", "access-as-reset"],
 )
@@ -68,7 +68,7 @@ def bearer(token: str) -> dict:
 @pytest.mark.parametrize(
     "token",
     [
-        create_token(1, TokenType.REFRESH),
+        create_token(1, "hash", TokenType.REFRESH),
         create_reset_password_token("a@b.co", "hash"),
         sign({"sub": "1", "exp": datetime.now(UTC) + timedelta(minutes=5)}),
         sign(
@@ -94,7 +94,7 @@ def test_protected_route_rejects_anything_but_a_valid_access_token(client, token
 @pytest.mark.parametrize(
     "token",
     [
-        create_token(1),
+        create_token(1, "hash"),
         expired_token(TokenType.REFRESH),
         create_reset_password_token("a@b.co", "hash"),
         "garbage",
@@ -114,5 +114,17 @@ def test_refresh_endpoint_requires_a_token(client):
 def test_every_token_is_unique_even_when_issued_in_the_same_second():
     # Sem jti, dois logins no mesmo segundo gerariam a mesma string, e revogar
     # um token (a blacklist guarda a string) revogaria o outro.
-    assert create_token(1) != create_token(1)
-    assert create_token(1, TokenType.REFRESH) != create_token(1, TokenType.REFRESH)
+    assert create_token(1, "hash") != create_token(1, "hash")
+    assert create_token(1, "hash", TokenType.REFRESH) != create_token(1, "hash", TokenType.REFRESH)
+
+
+def test_session_tokens_carry_the_password_fingerprint_and_not_the_hash():
+    for token_type in (TokenType.ACCESS, TokenType.REFRESH):
+        payload = jwt.get_unverified_claims(create_token(1, "hash-a", token_type))
+
+        assert payload["pwd"] == password_fingerprint("hash-a")
+        assert "hash-a" not in payload["pwd"]
+
+
+def test_fingerprint_changes_with_the_password():
+    assert password_fingerprint("hash-a") != password_fingerprint("hash-b")

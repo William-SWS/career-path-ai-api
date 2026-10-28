@@ -1,3 +1,5 @@
+import hmac
+
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
@@ -5,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies.database import get_db
 from app.core.config import settings
-from app.core.security import TokenType, is_token_blacklisted
+from app.core.security import TokenType, is_token_blacklisted, password_fingerprint
 from app.models.user import User
 from app.repository.user_repository import UserRepository
 from app.utils.token_utils import decode_jwt_token
@@ -20,7 +22,8 @@ def _unauthorized(detail: str) -> HTTPException:
 async def _authenticate(token: str, token_type: TokenType, db: AsyncSession) -> User:
     # Valida assinatura, expiração e tipo antes de qualquer acesso ao banco.
     try:
-        user_id = int(decode_jwt_token(token, token_type)["sub"])
+        payload = decode_jwt_token(token, token_type)
+        user_id = int(payload["sub"])
     except (JWTError, KeyError, ValueError):
         raise _unauthorized("Token é inválido ou está expirado") from None
 
@@ -30,6 +33,12 @@ async def _authenticate(token: str, token_type: TokenType, db: AsyncSession) -> 
     user = await UserRepository(db).get_by_id(user_id)
     if user is None:
         raise _unauthorized("Não foi possível validar as credenciais")
+
+    # Token emitido para outra senha (ou sem a claim): a senha mudou depois dele.
+    if not hmac.compare_digest(
+        str(payload.get("pwd", "")), password_fingerprint(user.password_hash)
+    ):
+        raise _unauthorized("Sessão encerrada. Faça login novamente")
 
     return user
 

@@ -1,8 +1,9 @@
 """Fluxo de autenticação ponta a ponta (HTTP → serviço → Postgres real)."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -41,7 +42,7 @@ def test_access_token_cannot_renew_the_session(http, session_tokens):
 
 
 def test_expired_refresh_token_cannot_renew_the_session(http, session_tokens):
-    expired = create_token(1, TokenType.REFRESH, token_duration=timedelta(seconds=-5))
+    expired = create_token(1, "hash", TokenType.REFRESH, token_duration=timedelta(seconds=-5))
 
     assert http.post(f"{API}/auth/refresh", headers=bearer(expired)).status_code == 401
 
@@ -150,6 +151,39 @@ def test_password_reset_works_once_and_changes_the_credentials(http, session_tok
     assert login("Newpass12").status_code == 200
     assert login(CREDENTIALS["password"]).status_code == 401
     assert login("Another123").status_code == 401
+
+
+def test_password_reset_ends_every_session_issued_before_it(http, session_tokens):
+    old_access, old_refresh = session_tokens["access_token"], session_tokens["refresh_token"]
+    assert http.get(f"{API}/users/me", headers=bearer(old_access)).status_code == 200
+
+    token = reset_token_for(http, CREDENTIALS["email"])
+    reset = http.post(
+        f"{API}/auth/reset-password", json={"reset_token": token, "new_password": "Newpass12"}
+    )
+    assert reset.status_code == 200
+
+    assert http.get(f"{API}/users/me", headers=bearer(old_access)).status_code == 401
+    assert http.post(f"{API}/auth/refresh", headers=bearer(old_refresh)).status_code == 401
+
+    # Quem entra de novo com a senha nova tem uma sessão que funciona.
+    login = http.post(
+        f"{API}/auth/login", json={"email": CREDENTIALS["email"], "password": "Newpass12"}
+    )
+    new_access = login.json()["tokens"]["access_token"]
+    assert http.get(f"{API}/users/me", headers=bearer(new_access)).status_code == 200
+
+
+def test_token_without_the_password_claim_is_rejected(http, session_tokens):
+    """Token emitido antes desta claim existir (ou forjado sem ela) não vale."""
+    claims = {
+        "sub": "1",
+        "type": "access",
+        "exp": datetime.now(UTC) + timedelta(minutes=5),
+    }
+    legacy = jwt.encode(claims, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+    assert http.get(f"{API}/users/me", headers=bearer(legacy)).status_code == 401
 
 
 @pytest.fixture

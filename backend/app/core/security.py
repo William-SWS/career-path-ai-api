@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import uuid
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -27,16 +29,30 @@ _DEFAULT_DURATIONS = {
 }
 
 
+def password_fingerprint(password_hash: str) -> str:
+    """HMAC do hash da senha: muda quando a senha muda e não revela o hash."""
+    return hmac.new(
+        settings.SECRET_KEY.encode(), password_hash.encode(), hashlib.sha256
+    ).hexdigest()[:32]
+
+
 def create_token(
     user_id: int,
+    password_hash: str,
     token_type: TokenType = TokenType.ACCESS,
     token_duration: timedelta | None = None,
 ) -> str:
-    """Emite um access ou refresh token; o de reset de senha tem criador próprio."""
+    """
+    Emite um access ou refresh token; o de reset de senha tem criador próprio.
+
+    O token carrega a impressão da senha atual (claim `pwd`): ao trocar a senha, todo token
+    emitido antes deixa de valer, sem precisar guardar estado.
+    """
     token_duration = token_duration or _DEFAULT_DURATIONS[token_type]()
     dict_info = {
         "sub": str(user_id),
         "type": token_type.value,
+        "pwd": password_fingerprint(password_hash),
         "jti": uuid.uuid4().hex,  # token único: a blacklist guarda a string inteira
         "exp": datetime.now(UTC) + token_duration,
     }

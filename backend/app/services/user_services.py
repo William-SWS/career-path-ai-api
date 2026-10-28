@@ -79,8 +79,8 @@ class UserService:
     async def login(self, login_schema: LoginRequest) -> LoginResponse:
         user = await self.authenticate_user(login_schema.email, login_schema.password)
 
-        access_token = create_token(user.id)
-        refresh_token = create_token(user.id, TokenType.REFRESH)
+        access_token = create_token(user.id, user.password_hash)
+        refresh_token = create_token(user.id, user.password_hash, TokenType.REFRESH)
 
         return LoginResponse(
             data=UserResponse(
@@ -98,7 +98,7 @@ class UserService:
     async def login_form(self, form_data: OAuth2PasswordRequestForm) -> TokenResponse:
         user = await self.authenticate_user(form_data.username, form_data.password)
 
-        access_token = create_token(user.id)
+        access_token = create_token(user.id, user.password_hash)
         return TokenResponse(
             access_token=access_token,
             refresh_token="",
@@ -106,7 +106,7 @@ class UserService:
         )
 
     async def use_refresh_token(self, user: User) -> RefreshTokenResponse:
-        access_token = create_token(user.id)
+        access_token = create_token(user.id, user.password_hash)
         return RefreshTokenResponse(access_token=access_token, token_type="Bearer")
 
     async def logout(
