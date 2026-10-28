@@ -2,9 +2,9 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+import jwt
 import pytest
 from fastapi import BackgroundTasks
-from jose import jwt
 
 from app.core.config import settings
 from app.core.exceptions import (
@@ -25,7 +25,7 @@ from app.schemas.user_schema import UserDeleteRequest, UserUpdateRequest
 from app.services import user_services
 from app.services.user_services import UserService
 from app.utils.token_utils import create_reset_password_token
-from tests.fakes import FakeSession
+from tests.fakes import FakeSession, unverified_claims
 
 PASSWORD = "Abcdef12"
 PASSWORD_HASH = bcrypt_context.hash(PASSWORD)  # bcrypt é lento: calcula uma vez
@@ -310,7 +310,7 @@ def revoked(service):
 
 
 def jti(token):
-    return jwt.get_unverified_claims(token)["jti"]
+    return unverified_claims(token)["jti"]
 
 
 def test_logout_revokes_access_and_refresh_token_in_one_commit(monkeypatch):
@@ -400,19 +400,19 @@ def test_refresh_rotates_the_token_and_keeps_the_original_expiry(monkeypatch):
     me = make_user()
     # 2 dias, não os 7 padrão: uma renovação deslizante (7 dias) daria outra expiração.
     old = create_token(me.id, me.password_hash, TokenType.REFRESH, token_duration=timedelta(days=2))
-    old_exp = jwt.get_unverified_claims(old)["exp"]
+    old_exp = unverified_claims(old)["exp"]
     calls = stub_revoke_once(monkeypatch, datetime.fromtimestamp(old_exp, tz=UTC))
     service = make_service(me)
 
     response = run(service.use_refresh_token(me, old))
 
-    new_refresh = jwt.get_unverified_claims(response.refresh_token)
+    new_refresh = unverified_claims(response.refresh_token)
     assert calls == [old]  # o refresh usado foi revogado
     assert new_refresh["type"] == "refresh"
     assert new_refresh["jti"] != jti(old)
     assert new_refresh["exp"] == old_exp  # teto absoluto: renovar não estende a sessão
-    assert jwt.get_unverified_claims(response.access_token)["type"] == "access"
-    assert new_refresh["pwd"] == jwt.get_unverified_claims(old)["pwd"]
+    assert unverified_claims(response.access_token)["type"] == "access"
+    assert new_refresh["pwd"] == unverified_claims(old)["pwd"]
     assert service.db.commits == 1
 
 
@@ -492,7 +492,7 @@ def test_legacy_reset_token_without_password_fingerprint_is_rejected():
 def test_reset_token_does_not_embed_the_password_hash():
     token = create_reset_password_token("a@b.co", PASSWORD_HASH)
 
-    claims = jwt.get_unverified_claims(token)
+    claims = unverified_claims(token)
 
     assert PASSWORD_HASH not in token
     assert PASSWORD_HASH not in claims.values()
@@ -501,7 +501,7 @@ def test_reset_token_does_not_embed_the_password_hash():
 
 def test_different_passwords_yield_different_reset_tokens_fingerprints():
     other_hash = bcrypt_context.hash(PASSWORD)
-    claim = lambda h: jwt.get_unverified_claims(create_reset_password_token("a@b.co", h))["pwd"]
+    claim = lambda h: unverified_claims(create_reset_password_token("a@b.co", h))["pwd"]
 
     assert claim(PASSWORD_HASH) != claim(other_hash)
     assert claim(PASSWORD_HASH) == claim(PASSWORD_HASH)

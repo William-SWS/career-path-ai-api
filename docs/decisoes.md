@@ -140,3 +140,13 @@ Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), *
 
 **Custo.** A demo completa exige dois clones lado a lado, e o contrato entre os repositórios é só a documentação da API.
 
+
+## 17. PyJWT no lugar de `python-jose`
+
+**Problema.** A varredura de dependências (`pip-audit`) apontou `python-jose` 3.5.0 (validação incorreta de chaves assimétricas em HMAC) e `ecdsa` 0.19.2 (ataque de temporização), que ele traz. Nenhum dos dois tem versão corrigida publicada, e o `python-jose` está sem manutenção ativa. Não era explorável aqui (chave simétrica e `algorithms` sempre explícito), mas deixava um aviso permanente sem saída.
+
+**Escolha.** Migrar para `PyJWT`. A mudança ficou restrita a `core/security.py`, `utils/token_utils.py` e à dependência de autenticação; o formato dos tokens (claims `sub`, `type`, `pwd`, `jti`, `exp`) não mudou, então tokens já emitidos continuam válidos. `python-jose` e `ecdsa` saíram do `uv.lock`. Alternativa descartada: manter e documentar como risco aceito.
+
+**Endurecimento.** O decode agora exige `exp` e `sub`: o `python-jose` aceitava um token assinado sem expiração. Os testes cobrem token sem `exp`, token sem assinatura (`alg: none`), assinado com outro algoritmo ou com outra chave.
+
+**Custo.** A troca é de biblioteca, não de protocolo; as exceções passaram de `JWTError` para `InvalidTokenError`. Com `ALGORITHM=HS512`, o PyJWT emite um aviso se `SECRET_KEY` tiver menos de 64 bytes (o mínimo da API é 32 caracteres); é só um aviso.

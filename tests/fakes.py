@@ -1,3 +1,6 @@
+import jwt
+
+
 class FakeSession:
     """Sessão que só registra o que o caso de uso fez, para afirmar a fronteira transacional."""
 
@@ -56,3 +59,8 @@ def sample_output(schema):
         return "x"
 
     return build(schema)
+
+
+def unverified_claims(token: str) -> dict:
+    """Claims de um JWT sem checar assinatura nem expiração (para inspecionar nos testes)."""
+    return jwt.decode(token, options={"verify_signature": False})

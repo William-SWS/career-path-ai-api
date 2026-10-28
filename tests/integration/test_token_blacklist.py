@@ -4,7 +4,6 @@ import asyncio
 from datetime import timedelta
 
 import pytest
-from jose import jwt
 from sqlalchemy import text
 
 from app.core.security import (
@@ -14,6 +13,7 @@ from app.core.security import (
     is_token_blacklisted,
     revoke_token_once,
 )
+from tests.fakes import unverified_claims
 from tests.integration.conftest import open_sessions
 
 pytestmark = pytest.mark.integration
@@ -52,7 +52,7 @@ def test_blacklist_stores_the_jti_and_never_the_token():
     columns, rows = run(scenario())
 
     assert "token" not in columns
-    assert rows == [jwt.get_unverified_claims(token)["jti"]]
+    assert rows == [unverified_claims(token)["jti"]]
     assert token not in rows
 
 

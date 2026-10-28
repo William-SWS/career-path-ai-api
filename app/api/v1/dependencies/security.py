@@ -2,7 +2,7 @@ import hmac
 
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError
+from jwt import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies.database import get_db
@@ -24,7 +24,7 @@ async def _authenticate(token: str, token_type: TokenType, db: AsyncSession) -> 
     try:
         payload = decode_jwt_token(token, token_type)
         user_id = int(payload["sub"])
-    except (JWTError, KeyError, ValueError):
+    except (InvalidTokenError, KeyError, ValueError):
         raise _unauthorized("Token é inválido ou está expirado") from None
 
     if await is_token_blacklisted(token, db):

@@ -17,9 +17,9 @@ dependencies = [
     "openai>=2.3.0",
     "passlib>=1.7.4",
     "psycopg2-binary>=2.9.11",
+    "pyjwt>=2.15.1",
     "pypdf>=5",
     "python-dotenv>=1.1.1",
-    "python-jose>=3.5.0",
     "python-multipart>=0.0.20",
     "uvicorn>=0.37.0",
 ]
@@ -30,7 +30,6 @@ dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
     "types-passlib>=1.7.7.20260211",
-    "types-python-jose>=3.5.0.20260408",
 ]
 [tool.pytest.ini_options]
 testpaths = ["tests"]

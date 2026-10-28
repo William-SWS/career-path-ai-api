@@ -32,7 +32,7 @@ Conhecido e **não** resolvido:
 - **A rotação do refresh é simples, sem detecção de roubo:** reusar um refresh já revogado dá 401, mas **não** derruba as outras sessões da pessoa. Perder a resposta de uma renovação, ou duas abas renovando quase ao mesmo tempo, também dá 401 e obriga a entrar de novo. O comportamento do frontend no navegador **não foi testado** (só a lógica de erro e o contrato do `authService` têm testes; a renovação de sessão e os fluxos no navegador não).
 - **Os limites padrão são estimativas minhas**, sem base em dados de uso.
 - **Sem `REDIS_URL`**, o limite fica na memória de cada processo e não protege um deploy com vários workers.
-- Não foi feita revisão de dependências nem varredura de vulnerabilidades (`pip-audit` ou equivalente).
+- **Dependências:** uma varredura com `pip-audit` (base OSV/PyPI, sobre o `uv.lock`) foi feita **uma vez**, encontrou 16 pacotes com avisos, e eles foram corrigidos (ver [decisão 17](decisoes.md#17-pyjwt-no-lugar-de-python-jose)); depois dela, o relatório saiu limpo. Ela **não roda no CI**, então novos avisos só aparecem quando alguém a executar de novo, e ela não cobre falhas ainda não publicadas.
 
 ## Arquitetura e código
 

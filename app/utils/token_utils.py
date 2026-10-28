@@ -2,7 +2,8 @@ import hmac
 from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -20,11 +21,16 @@ def cleanup_expired_tokens(db: Session) -> int:
 
 
 def decode_jwt_token(token: str, expected_type: TokenType) -> dict:
-    """Levanta JWTError se o token for inválido, estiver expirado ou for de outro tipo."""
-    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    """Levanta InvalidTokenError se o token for inválido, estiver expirado ou for de outro tipo."""
+    payload = jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[settings.ALGORITHM],
+        options={"require": ["exp", "sub"]},  # token sem expiração nunca é aceito
+    )
 
     if payload.get("type") != expected_type.value:
-        raise JWTError(f"Esperado token do tipo {expected_type.value}")
+        raise InvalidTokenError(f"Esperado token do tipo {expected_type.value}")
 
     return payload
 
@@ -33,7 +39,7 @@ def get_token_subject(token: str, expected_type: TokenType) -> str | None:
     """Subject do token, ou None se ele for inválido, expirado ou de outro tipo."""
     try:
         return decode_jwt_token(token, expected_type).get("sub")
-    except JWTError:
+    except InvalidTokenError:
         return None
 
 
@@ -64,7 +70,7 @@ def read_reset_password_token(token: str) -> ResetTokenClaims | None:
     """Claims do token de reset, ou None se ele for inválido, expirado ou legado (sem `pwd`)."""
     try:
         payload = decode_jwt_token(token, TokenType.RESET_PASSWORD)
-    except JWTError:
+    except InvalidTokenError:
         return None
 
     email, fingerprint = payload.get("sub"), payload.get("pwd")

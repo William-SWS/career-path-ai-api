@@ -2,12 +2,14 @@
 
 from datetime import UTC, datetime, timedelta
 
+import jwt
 import pytest
-from jose import JWTError, jwt
+from jwt import InvalidTokenError
 
 from app.core.config import settings
 from app.core.security import TokenType, create_token, password_fingerprint
 from app.utils.token_utils import create_reset_password_token, decode_jwt_token
+from tests.fakes import unverified_claims
 
 API = "/api/v1"
 
@@ -21,7 +23,7 @@ def expired_token(token_type: TokenType) -> str:
 
 
 def test_tokens_carry_their_type():
-    claims = lambda t: jwt.get_unverified_claims(t)
+    claims = lambda t: unverified_claims(t)
 
     assert claims(create_token(1, "hash"))["type"] == "access"
     assert claims(create_token(1, "hash", TokenType.REFRESH))["type"] == "refresh"
@@ -29,7 +31,7 @@ def test_tokens_carry_their_type():
 
 
 def test_refresh_token_outlives_access_token():
-    exp = lambda t: jwt.get_unverified_claims(t)["exp"]
+    exp = lambda t: unverified_claims(t)["exp"]
 
     assert exp(create_token(1, "hash", TokenType.REFRESH)) > exp(create_token(1, "hash"))
 
@@ -45,20 +47,54 @@ def test_refresh_token_outlives_access_token():
     ids=["refresh-as-access", "access-as-refresh", "reset-as-access", "access-as-reset"],
 )
 def test_decode_rejects_a_token_of_another_type(token, expected):
-    with pytest.raises(JWTError):
+    with pytest.raises(InvalidTokenError):
         decode_jwt_token(token, expected)
 
 
 def test_decode_rejects_legacy_token_without_type():
     legacy = sign({"sub": "1", "exp": datetime.now(UTC) + timedelta(minutes=5)})
 
-    with pytest.raises(JWTError):
+    with pytest.raises(InvalidTokenError):
         decode_jwt_token(legacy, TokenType.ACCESS)
 
 
 def test_decode_rejects_expired_token():
-    with pytest.raises(JWTError):
+    with pytest.raises(InvalidTokenError):
         decode_jwt_token(expired_token(TokenType.ACCESS), TokenType.ACCESS)
+
+
+def test_decode_rejects_token_without_expiration():
+    never_expires = sign({"sub": "1", "type": "access"})
+
+    with pytest.raises(InvalidTokenError):
+        decode_jwt_token(never_expires, TokenType.ACCESS)
+
+
+def test_decode_rejects_unsigned_token():
+    claims = {"sub": "1", "type": "access", "exp": datetime.now(UTC) + timedelta(minutes=5)}
+    unsigned = jwt.encode(claims, None, algorithm="none")
+
+    with pytest.raises(InvalidTokenError):
+        decode_jwt_token(unsigned, TokenType.ACCESS)
+
+
+@pytest.mark.filterwarnings("ignore::jwt.warnings.InsecureKeyLengthWarning")
+def test_decode_rejects_token_signed_with_another_algorithm():
+    # O algoritmo aceito é só o configurado: HS512 com a mesma chave não vale como HS256.
+    other = "HS512" if settings.ALGORITHM != "HS512" else "HS256"
+    claims = {"sub": "1", "type": "access", "exp": datetime.now(UTC) + timedelta(minutes=5)}
+    token = jwt.encode(claims, settings.SECRET_KEY, algorithm=other)
+
+    with pytest.raises(InvalidTokenError):
+        decode_jwt_token(token, TokenType.ACCESS)
+
+
+def test_decode_rejects_token_signed_with_another_key():
+    claims = {"sub": "1", "type": "access", "exp": datetime.now(UTC) + timedelta(minutes=5)}
+    forged = jwt.encode(claims, "x" * 64, algorithm=settings.ALGORITHM)
+
+    with pytest.raises(InvalidTokenError):
+        decode_jwt_token(forged, TokenType.ACCESS)
 
 
 def bearer(token: str) -> dict:
@@ -120,7 +156,7 @@ def test_every_token_is_unique_even_when_issued_in_the_same_second():
 
 def test_session_tokens_carry_the_password_fingerprint_and_not_the_hash():
     for token_type in (TokenType.ACCESS, TokenType.REFRESH):
-        payload = jwt.get_unverified_claims(create_token(1, "hash-a", token_type))
+        payload = unverified_claims(create_token(1, "hash-a", token_type))
 
         assert payload["pwd"] == password_fingerprint("hash-a")
         assert "hash-a" not in payload["pwd"]

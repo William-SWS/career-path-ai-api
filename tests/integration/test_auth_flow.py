@@ -2,13 +2,14 @@
 
 from datetime import UTC, datetime, timedelta
 
+import jwt
 import pytest
-from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.core.security import TokenType, create_token
+from tests.fakes import unverified_claims
 from tests.integration.conftest import API, CREDENTIALS, bearer
 
 pytestmark = pytest.mark.integration
@@ -52,13 +53,13 @@ def test_rotated_refresh_tokens_keep_the_original_expiry(http, session_tokens, m
     # Sessão de 2 dias, não os 7 padrão: uma renovação deslizante daria outra expiração.
     monkeypatch.setattr(settings, "REFRESH_TOKEN_EXPIRE_DAYS", 2)
     login = http.post(f"{API}/auth/login", json=CREDENTIALS).json()["tokens"]
-    original = jwt.get_unverified_claims(login["refresh_token"])["exp"]
+    original = unverified_claims(login["refresh_token"])["exp"]
 
     first = http.post(f"{API}/auth/refresh", headers=bearer(login["refresh_token"])).json()
     second = http.post(f"{API}/auth/refresh", headers=bearer(first["refresh_token"])).json()
 
-    assert jwt.get_unverified_claims(first["refresh_token"])["exp"] == original
-    assert jwt.get_unverified_claims(second["refresh_token"])["exp"] == original
+    assert unverified_claims(first["refresh_token"])["exp"] == original
+    assert unverified_claims(second["refresh_token"])["exp"] == original
 
 
 def test_a_rotated_refresh_token_still_dies_with_a_password_reset(http, session_tokens):

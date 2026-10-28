@@ -4,7 +4,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -66,7 +67,7 @@ def _revocation_claims(token: str) -> tuple[str, datetime] | None:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return str(payload["jti"]), datetime.fromtimestamp(payload["exp"], tz=UTC)
-    except (JWTError, KeyError):
+    except (InvalidTokenError, KeyError):
         return None
 
 
