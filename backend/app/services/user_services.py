@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +17,7 @@ from app.core.security import (
     bcrypt_context,
     create_token,
     is_token_blacklisted,
+    revoke_token_once,
 )
 from app.models.user import User
 from app.repository.user_repository import UserRepository
@@ -105,9 +108,31 @@ class UserService:
             token_type="Bearer",
         )
 
-    async def use_refresh_token(self, user: User) -> RefreshTokenResponse:
+    async def use_refresh_token(self, user: User, refresh_token: str) -> RefreshTokenResponse:
+        """
+        Rotação: o refresh usado é revogado e um novo é emitido. O novo herda a expiração do
+        original, então a sessão termina no máximo REFRESH_TOKEN_EXPIRE_DAYS depois do login,
+        por mais que seja renovada. Um refresh já usado (ou que perdeu uma corrida com outra
+        renovação) é recusado.
+        """
+        expires_at = await revoke_token_once(refresh_token, self.db)
+        if expires_at is None:
+            raise AuthenticationException(
+                "Refresh token já utilizado ou revogado", code="refresh_token_reused"
+            )
+
+        new_refresh_token = create_token(
+            user.id,
+            user.password_hash,
+            TokenType.REFRESH,
+            token_duration=expires_at - datetime.now(UTC),
+        )
         access_token = create_token(user.id, user.password_hash)
-        return RefreshTokenResponse(access_token=access_token, token_type="Bearer")
+        await self.db.commit()
+
+        return RefreshTokenResponse(
+            access_token=access_token, refresh_token=new_refresh_token, token_type="Bearer"
+        )
 
     async def logout(
         self, access_token: str, current_user: User, refresh_token: str | None = None

@@ -63,13 +63,15 @@ async def login_form(
 
 @router.post("/refresh", response_model=RefreshTokenResponse, dependencies=[Depends(limit_refresh)])
 async def use_refresh_token(
+    token: str = Depends(oauth2_scheme),
     user: User = Depends(verify_refresh_token),
     user_service: UserService = Depends(get_user_service),
 ):
     """
-    Rota para gerar novo access token usando refresh token
+    Renova a sessão: devolve um novo access token e um novo refresh token (rotação). O
+    refresh token enviado deixa de valer.
     """
-    return await user_service.use_refresh_token(user)
+    return await user_service.use_refresh_token(user, token)
 
 
 @router.post("/logout", response_model=MessageResponse, dependencies=[Depends(limit_logout)])

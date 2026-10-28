@@ -7,6 +7,7 @@ from enum import Enum
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -92,3 +93,24 @@ async def add_token_to_blacklist(token: str, db: AsyncSession) -> None:
 
     db.add(TokenBlacklist(jti=claims[0], expires_at=claims[1]))
     await db.flush()
+
+
+async def revoke_token_once(token: str, db: AsyncSession) -> datetime | None:
+    """
+    Revoga o token de forma atômica e devolve a expiração dele, ou None se ele não pôde ser
+    revogado agora (inválido, expirado ou já revogado, inclusive por outra requisição
+    simultânea). `INSERT ... ON CONFLICT DO NOTHING` decide a corrida no banco: de duas
+    chamadas com o mesmo token, só uma recebe a expiração. Quem chama faz o commit.
+    """
+    claims = _revocation_claims(token)
+    if claims is None:
+        return None
+
+    jti, expires_at = claims
+    result = await db.execute(
+        pg_insert(TokenBlacklist)
+        .values(jti=jti, expires_at=expires_at)
+        .on_conflict_do_nothing(index_elements=["jti"])
+        .returning(TokenBlacklist.id)
+    )
+    return expires_at if result.first() is not None else None

@@ -91,10 +91,15 @@ def test_refresh_and_logout_are_limited(http, session_tokens, monkeypatch):
 
     monkeypatch.setattr(settings, "RATE_LIMIT_REFRESH", "2/minute")
     monkeypatch.setattr(settings, "RATE_LIMIT_LOGOUT", "1/minute")
-    refresh = bearer(session_tokens["refresh_token"])
     access = bearer(session_tokens["access_token"])
 
-    refreshed = [http.post(f"{API}/auth/refresh", headers=refresh).status_code for _ in range(3)]
+    # Cada renovação consome o refresh anterior: encadeia o token novo.
+    refresh_token, refreshed = session_tokens["refresh_token"], []
+    for _ in range(3):
+        response = http.post(f"{API}/auth/refresh", headers=bearer(refresh_token))
+        refreshed.append(response.status_code)
+        if response.status_code == 200:
+            refresh_token = response.json()["refresh_token"]
     logouts = [http.post(f"{API}/auth/logout", headers=access).status_code for _ in range(2)]
 
     assert refreshed == [200, 200, 429]

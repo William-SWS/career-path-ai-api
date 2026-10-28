@@ -40,12 +40,14 @@ async function refreshAccessToken() {
 
     const data = await response.json();
     
-    if (data.access_token) {
+    if (data.access_token && data.refresh_token) {
       localStorage.setItem('access_token', data.access_token);
+      // O backend rotaciona o refresh token: o anterior deixa de valer após esta renovação.
+      localStorage.setItem('refresh_token', data.refresh_token);
       return data.access_token;
     }
     
-    throw new Error('Token de acesso não retornado');
+    throw new Error('Tokens não retornados');
   } catch (error) {
     // Se falhar, limpa os tokens e redireciona para login
     localStorage.removeItem('access_token');

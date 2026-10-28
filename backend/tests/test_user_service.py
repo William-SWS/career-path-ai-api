@@ -382,6 +382,52 @@ def test_logout_rejects_a_refresh_token_of_another_user_and_revokes_nothing(monk
     assert service.db.commits == 0
 
 
+# ---------- rotação do refresh token
+
+
+def stub_revoke_once(monkeypatch, result):
+    calls = []
+
+    async def revoke_once(token, db):
+        calls.append(token)
+        return result
+
+    monkeypatch.setattr(user_services, "revoke_token_once", revoke_once)
+    return calls
+
+
+def test_refresh_rotates_the_token_and_keeps_the_original_expiry(monkeypatch):
+    me = make_user()
+    # 2 dias, não os 7 padrão: uma renovação deslizante (7 dias) daria outra expiração.
+    old = create_token(me.id, me.password_hash, TokenType.REFRESH, token_duration=timedelta(days=2))
+    old_exp = jwt.get_unverified_claims(old)["exp"]
+    calls = stub_revoke_once(monkeypatch, datetime.fromtimestamp(old_exp, tz=UTC))
+    service = make_service(me)
+
+    response = run(service.use_refresh_token(me, old))
+
+    new_refresh = jwt.get_unverified_claims(response.refresh_token)
+    assert calls == [old]  # o refresh usado foi revogado
+    assert new_refresh["type"] == "refresh"
+    assert new_refresh["jti"] != jti(old)
+    assert new_refresh["exp"] == old_exp  # teto absoluto: renovar não estende a sessão
+    assert jwt.get_unverified_claims(response.access_token)["type"] == "access"
+    assert new_refresh["pwd"] == jwt.get_unverified_claims(old)["pwd"]
+    assert service.db.commits == 1
+
+
+def test_refresh_rejects_a_token_that_was_already_used_and_issues_nothing(monkeypatch):
+    me = make_user()
+    stub_revoke_once(monkeypatch, None)
+    service = make_service(me)
+
+    with pytest.raises(AuthenticationException) as exc_info:
+        run(service.use_refresh_token(me, create_token(me.id, "hash", TokenType.REFRESH)))
+
+    assert exc_info.value.code == "refresh_token_reused"
+    assert service.db.commits == 0
+
+
 # ---------- token de reset de uso único (impressão digital da senha atual)
 
 

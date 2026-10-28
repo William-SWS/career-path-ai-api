@@ -95,6 +95,7 @@ class LogoutRequest(BaseModel):
 
 class RefreshTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
 
 

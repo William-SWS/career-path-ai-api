@@ -12,6 +12,7 @@ from app.core.security import (
     add_token_to_blacklist,
     create_token,
     is_token_blacklisted,
+    revoke_token_once,
 )
 from tests.integration.conftest import open_sessions
 
@@ -89,3 +90,40 @@ def test_invalid_or_expired_tokens_are_not_stored(unusable):
                 return count, await is_token_blacklisted(unusable, session)
 
     assert run(scenario()) == (0, False)
+
+
+def test_concurrent_revocations_of_the_same_token_have_exactly_one_winner():
+    token = create_token(1, "hash", TokenType.REFRESH)
+
+    async def revoke(sessions):
+        async with sessions() as session:
+            result = await revoke_token_once(token, session)
+            await session.commit()
+            return result
+
+    async def scenario():
+        async with open_sessions() as sessions:
+            return await asyncio.gather(*(revoke(sessions) for _ in range(8)))
+
+    results = run(scenario())
+
+    assert len([r for r in results if r is not None]) == 1  # os outros 7 perderam a corrida
+
+
+def test_revoke_once_refuses_invalid_or_already_revoked_tokens():
+    token = create_token(1, "hash", TokenType.REFRESH)
+
+    async def scenario():
+        async with open_sessions() as sessions:
+            async with sessions() as session:
+                first = await revoke_token_once(token, session)
+                await session.commit()
+                second = await revoke_token_once(token, session)
+                garbage = await revoke_token_once("garbage", session)
+                return first, second, garbage
+
+    first, second, garbage = run(scenario())
+
+    assert first is not None
+    assert second is None
+    assert garbage is None

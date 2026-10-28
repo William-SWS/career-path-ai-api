@@ -35,6 +35,44 @@ def test_refresh_issues_a_new_working_access_token(http, session_tokens):
     assert http.get(f"{API}/users/me", headers=bearer(new_access)).status_code == 200
 
 
+def test_refresh_rotates_the_refresh_token(http, session_tokens):
+    old = session_tokens["refresh_token"]
+
+    first = http.post(f"{API}/auth/refresh", headers=bearer(old)).json()
+    reused = http.post(f"{API}/auth/refresh", headers=bearer(old))
+    second = http.post(f"{API}/auth/refresh", headers=bearer(first["refresh_token"]))
+
+    assert first["refresh_token"] != old
+    assert reused.status_code == 401  # o refresh antigo não vale mais
+    assert second.status_code == 200  # o novo funciona e também é rotacionado
+    assert second.json()["refresh_token"] != first["refresh_token"]
+
+
+def test_rotated_refresh_tokens_keep_the_original_expiry(http, session_tokens, monkeypatch):
+    # Sessão de 2 dias, não os 7 padrão: uma renovação deslizante daria outra expiração.
+    monkeypatch.setattr(settings, "REFRESH_TOKEN_EXPIRE_DAYS", 2)
+    login = http.post(f"{API}/auth/login", json=CREDENTIALS).json()["tokens"]
+    original = jwt.get_unverified_claims(login["refresh_token"])["exp"]
+
+    first = http.post(f"{API}/auth/refresh", headers=bearer(login["refresh_token"])).json()
+    second = http.post(f"{API}/auth/refresh", headers=bearer(first["refresh_token"])).json()
+
+    assert jwt.get_unverified_claims(first["refresh_token"])["exp"] == original
+    assert jwt.get_unverified_claims(second["refresh_token"])["exp"] == original
+
+
+def test_a_rotated_refresh_token_still_dies_with_a_password_reset(http, session_tokens):
+    rotated = http.post(
+        f"{API}/auth/refresh", headers=bearer(session_tokens["refresh_token"])
+    ).json()["refresh_token"]
+    token = reset_token_for(http, CREDENTIALS["email"])
+    http.post(
+        f"{API}/auth/reset-password", json={"reset_token": token, "new_password": "Newpass12"}
+    )
+
+    assert http.post(f"{API}/auth/refresh", headers=bearer(rotated)).status_code == 401
+
+
 def test_access_token_cannot_renew_the_session(http, session_tokens):
     response = http.post(f"{API}/auth/refresh", headers=bearer(session_tokens["access_token"]))
 
