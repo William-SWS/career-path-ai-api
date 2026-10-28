@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_REGISTER: str = "3/minute"
     RATE_LIMIT_FORGOT_PASSWORD: str = "3/hour"
     RATE_LIMIT_RESET_PASSWORD: str = "10/hour"
+    # Por endereço de e-mail (além do IP), para um atacante com vários IPs não encher a caixa de alguém.
+    RATE_LIMIT_FORGOT_PASSWORD_EMAIL: str = "3/hour"
+    RATE_LIMIT_REFRESH: str = "30/minute"
+    RATE_LIMIT_LOGOUT: str = "30/minute"
     RATE_LIMIT_AI_USER_HOURLY: str = "10/hour"
     RATE_LIMIT_AI_USER_BURST: str = "3/minute"
     RATE_LIMIT_AI_GLOBAL: str = "20/minute"
@@ -96,6 +100,9 @@ class Settings(BaseSettings):
         "RATE_LIMIT_REGISTER",
         "RATE_LIMIT_FORGOT_PASSWORD",
         "RATE_LIMIT_RESET_PASSWORD",
+        "RATE_LIMIT_FORGOT_PASSWORD_EMAIL",
+        "RATE_LIMIT_REFRESH",
+        "RATE_LIMIT_LOGOUT",
         "RATE_LIMIT_AI_USER_HOURLY",
         "RATE_LIMIT_AI_USER_BURST",
         "RATE_LIMIT_AI_GLOBAL",

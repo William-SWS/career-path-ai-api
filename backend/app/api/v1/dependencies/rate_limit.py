@@ -36,19 +36,40 @@ limit_register = _ip_rule("register", "RATE_LIMIT_REGISTER")
 limit_forgot_password = _ip_rule("forgot_password", "RATE_LIMIT_FORGOT_PASSWORD")
 limit_reset_password = _ip_rule("reset_password", "RATE_LIMIT_RESET_PASSWORD")
 limit_login_form = _ip_rule("login", "RATE_LIMIT_LOGIN")
+limit_refresh = _ip_rule("refresh", "RATE_LIMIT_REFRESH")
+limit_logout = _ip_rule("logout", "RATE_LIMIT_LOGOUT")
+
+
+async def _email_hash(request: Request) -> str | None:
+    """Hash do e-mail do corpo JSON (o e-mail nunca aparece nas chaves do Redis)."""
+    try:
+        email = (await request.json()).get("email")
+    except (ValueError, AttributeError):
+        return None  # corpo inválido: o 422 sai depois
+    if not isinstance(email, str):
+        return None
+    return hashlib.sha256(email.strip().lower().encode()).hexdigest()[:16]
 
 
 async def limit_login(request: Request, limiter: RateLimiter = Depends(get_rate_limiter)) -> None:
     """IP + e-mail: frear tentativas contra uma conta sem bloquear quem divide o mesmo IP."""
     key = client_ip(request)
-    try:
-        email = (await request.json()).get("email")
-    except (ValueError, AttributeError):
-        email = None  # corpo inválido: o 422 sai depois; aqui vale só o IP
-    if isinstance(email, str):
-        # Hash: o e-mail não aparece nas chaves do Redis.
-        key += ":" + hashlib.sha256(email.strip().lower().encode()).hexdigest()[:16]
+    if (email_hash := await _email_hash(request)) is not None:
+        key += ":" + email_hash
     await limiter.hit("login", settings.RATE_LIMIT_LOGIN, key)
+
+
+async def limit_forgot_password_email(
+    request: Request, limiter: RateLimiter = Depends(get_rate_limiter)
+) -> None:
+    """Por e-mail, de qualquer IP: impede encher a caixa de alguém usando vários IPs.
+
+    Conta o e-mail recebido, exista a conta ou não, então o 429 não revela contas.
+    """
+    if (email_hash := await _email_hash(request)) is not None:
+        await limiter.hit(
+            "forgot_password_email", settings.RATE_LIMIT_FORGOT_PASSWORD_EMAIL, email_hash
+        )
 
 
 async def limit_ai_generation(

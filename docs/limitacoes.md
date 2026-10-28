@@ -29,9 +29,7 @@ Conhecido e **não** resolvido:
 
 - **Cadastro revela contas:** `POST /auth/register` responde `409` quando o e-mail já existe. Corrigir exige mudar o fluxo (por exemplo, confirmar por e-mail) e o contrato com o frontend.
 - **JWT em `localStorage` no frontend**, exposto a XSS. A alternativa (cookie `HttpOnly` + proteção CSRF) não foi implementada.
-- **Sessões não são encerradas na troca de senha:** tokens já emitidos continuam válidos até expirar.
 - **O refresh token não é rotacionado**, e a blacklist guarda o token inteiro em vez de só o `jti`.
-- **Rate limit incompleto:** `forgot-password` limita por IP, mas não por e-mail; `refresh` e `logout` não têm limite.
 - **Os limites padrão são estimativas minhas**, sem base em dados de uso.
 - **Sem `REDIS_URL`**, o limite fica na memória de cada processo e não protege um deploy com vários workers.
 - `token_blacklist.token` ainda aceita `NULL` no banco (mantido para não misturar a mudança com outra migration).
@@ -63,4 +61,4 @@ Todas as medições deste projeto são de **uma máquina, poucas amostras e, qua
 | Diferença de tempo no login (e-mail existente vs não) | ≈219 ms de diferença → 222 ms contra 221 ms | medição local, poucas repetições |
 | Requisição com o Redis parado | ~3 s em toda requisição → 0,22 s após a 1ª | stack local no Docker |
 | Erros do `mypy` | 105 → 0 | configuração atual |
-| Testes | 284 (251 sem banco + 33 de integração/Redis) | só passam as 33 com PostgreSQL e Redis disponíveis |
+| Testes | 303 (266 sem banco + 37 de integração/Redis) | só passam as 37 com PostgreSQL e Redis disponíveis |

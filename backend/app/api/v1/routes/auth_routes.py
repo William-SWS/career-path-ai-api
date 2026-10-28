@@ -3,8 +3,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.v1.dependencies.rate_limit import (
     limit_forgot_password,
+    limit_forgot_password_email,
     limit_login,
     limit_login_form,
+    limit_logout,
+    limit_refresh,
     limit_register,
     limit_reset_password,
 )
@@ -58,7 +61,7 @@ async def login_form(
     return await user_service.login_form(form_data)
 
 
-@router.post("/refresh", response_model=RefreshTokenResponse)
+@router.post("/refresh", response_model=RefreshTokenResponse, dependencies=[Depends(limit_refresh)])
 async def use_refresh_token(
     user: User = Depends(verify_refresh_token),
     user_service: UserService = Depends(get_user_service),
@@ -69,7 +72,7 @@ async def use_refresh_token(
     return await user_service.use_refresh_token(user)
 
 
-@router.post("/logout", response_model=MessageResponse)
+@router.post("/logout", response_model=MessageResponse, dependencies=[Depends(limit_logout)])
 async def logout(
     logout_data: LogoutRequest | None = None,
     token: str = Depends(oauth2_scheme),
@@ -86,7 +89,7 @@ async def logout(
 @router.post(
     "/forgot-password",
     response_model=MessageResponse,
-    dependencies=[Depends(limit_forgot_password)],
+    dependencies=[Depends(limit_forgot_password), Depends(limit_forgot_password_email)],
 )
 async def forgot_password(
     request_data: ForgotPasswordRequest,

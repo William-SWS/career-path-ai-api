@@ -69,3 +69,34 @@ def test_ai_generation_is_limited_per_user_and_the_limit_does_not_hide_auth_erro
 
     assert statuses == [200, 200, 200, 429]
     assert unauthenticated.status_code == 401  # sem token: 401, nunca consome o limite de ninguém
+
+
+def test_forgot_password_is_limited_per_email_even_below_the_ip_limit(http, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "RATE_LIMIT_FORGOT_PASSWORD", "10/hour")  # IP não é o gargalo
+    body = {"email": "nobody@example.com"}  # conta inexistente: o limite vale igual
+
+    statuses = [http.post(f"{API}/auth/forgot-password", json=body).status_code for _ in range(4)]
+
+    assert statuses == [200, 200, 200, 429]
+    assert (
+        http.post(f"{API}/auth/forgot-password", json={"email": "other@example.com"}).status_code
+        == 200
+    )
+
+
+def test_refresh_and_logout_are_limited(http, session_tokens, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "RATE_LIMIT_REFRESH", "2/minute")
+    monkeypatch.setattr(settings, "RATE_LIMIT_LOGOUT", "1/minute")
+    refresh = bearer(session_tokens["refresh_token"])
+    access = bearer(session_tokens["access_token"])
+
+    refreshed = [http.post(f"{API}/auth/refresh", headers=refresh).status_code for _ in range(3)]
+    logouts = [http.post(f"{API}/auth/logout", headers=access).status_code for _ in range(2)]
+
+    assert refreshed == [200, 200, 429]
+    assert logouts[0] == 200
+    assert logouts == [200, 429]

@@ -58,7 +58,7 @@ Todas as variáveis são lidas por `app/core/config.py` (`Settings`). Sem as obr
 | `GEMINI_MAX_ATTEMPTS` (3; de 1 a 5) | tentativas por geração em falhas transitórias (1 = sem retry) |
 | `REDIS_URL` (vazio) | Redis do rate limit; vazio = contador em memória |
 | `TRUSTED_PROXY_COUNT` (0; de 0 a 5) | quantos proxies confiáveis existem na frente da API; só com valor maior que 0 o `X-Forwarded-For` é lido |
-| `RATE_LIMIT_LOGIN` (`5/minute`), `RATE_LIMIT_REGISTER` (`3/minute`), `RATE_LIMIT_FORGOT_PASSWORD` (`3/hour`), `RATE_LIMIT_RESET_PASSWORD` (`10/hour`) | limites das rotas de autenticação |
+| `RATE_LIMIT_LOGIN` (`5/minute`), `RATE_LIMIT_REGISTER` (`3/minute`), `RATE_LIMIT_FORGOT_PASSWORD` (`3/hour`), `RATE_LIMIT_RESET_PASSWORD` (`10/hour`), `RATE_LIMIT_FORGOT_PASSWORD_EMAIL` (`3/hour`, por e-mail), `RATE_LIMIT_REFRESH` (`30/minute`), `RATE_LIMIT_LOGOUT` (`30/minute`) | limites das rotas de autenticação |
 | `RATE_LIMIT_AI_USER_HOURLY` (`10/hour`), `RATE_LIMIT_AI_USER_BURST` (`3/minute`), `RATE_LIMIT_AI_GLOBAL` (`20/minute`) | limites da geração com IA, por usuário e global |
 
 Os limites usam o formato `<n>/<minute|hour|day>`; um valor inválido impede a API de iniciar.

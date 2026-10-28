@@ -13,7 +13,9 @@ from limits.storage import storage_from_string
 from app.api.v1.dependencies.rate_limit import (
     client_ip,
     limit_ai_generation,
+    limit_forgot_password_email,
     limit_login,
+    limit_refresh,
     limit_register,
 )
 from app.api.v1.dependencies.security import verify_token
@@ -179,6 +181,14 @@ def mini_app(monkeypatch):
     async def login(payload: dict):
         return payload
 
+    @app.post("/forgot", dependencies=[Depends(limit_forgot_password_email)])
+    async def forgot(payload: dict):
+        return payload
+
+    @app.post("/refresh", dependencies=[Depends(limit_refresh)])
+    async def refresh():
+        return {"ok": True}
+
     @app.post("/generate", dependencies=[Depends(limit_ai_generation)])
     async def generate():
         return {"ok": True}
@@ -232,6 +242,40 @@ def test_login_limiter_ignores_a_broken_body_instead_of_failing(mini_app):
     )
 
     assert response.status_code == 422  # a validação do corpo continua mandando
+
+
+def test_forgot_password_is_limited_per_email_whatever_the_ip(mini_app, monkeypatch):
+    app, limiter = mini_app
+    monkeypatch.setattr(settings, "RATE_LIMIT_FORGOT_PASSWORD_EMAIL", "2/hour")
+    client = TestClient(app)
+
+    # IPs diferentes (X-Forwarded-For confiável) não escapam do limite do mesmo e-mail.
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_COUNT", 1)
+    send = lambda email, ip: (
+        client.post("/forgot", json={"email": email}, headers={"x-forwarded-for": ip}).status_code
+    )
+
+    assert [send("a@example.com", f"203.0.113.{i}") for i in range(2)] == [200, 200]
+    assert send("A@Example.com ", "203.0.113.99") == 429  # mesmo e-mail, outro IP
+    assert send("b@example.com", "203.0.113.99") == 200  # outro e-mail
+
+
+def test_forgot_password_limit_ignores_a_broken_body_instead_of_failing(mini_app):
+    app, _ = mini_app
+
+    response = TestClient(app).post(
+        "/forgot", content="not json", headers={"content-type": "application/json"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_refresh_is_limited_per_ip(mini_app, monkeypatch):
+    app, _ = mini_app
+    monkeypatch.setattr(settings, "RATE_LIMIT_REFRESH", "2/minute")
+    client = TestClient(app)
+
+    assert [client.post("/refresh").status_code for _ in range(3)] == [200, 200, 429]
 
 
 def test_email_never_appears_in_the_limiter_key(monkeypatch):
@@ -293,10 +337,13 @@ def test_register_fails_open_when_the_limiter_storage_is_down(mini_app):
 
 
 @pytest.mark.parametrize("bad", ["", "5", "five/minute", "5/fortnight", "0/minute"])
-def test_invalid_limit_strings_are_rejected_at_startup(bad):
+@pytest.mark.parametrize(
+    "name", ["RATE_LIMIT_LOGIN", "RATE_LIMIT_FORGOT_PASSWORD_EMAIL", "RATE_LIMIT_REFRESH"]
+)
+def test_invalid_limit_strings_are_rejected_at_startup(name, bad):
     from pydantic import ValidationError
 
     from app.core.config import Settings
 
     with pytest.raises(ValidationError):
-        Settings(RATE_LIMIT_LOGIN=bad)
+        Settings(**{name: bad})
