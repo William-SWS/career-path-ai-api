@@ -23,9 +23,7 @@ from app.utils.pdf_utils import check_pdf
 
 
 def _guide_not_found() -> NotFoundException:
-    return NotFoundException(
-        "Guia de entrevista não encontrado", code="interview_guide_not_found"
-    )
+    return NotFoundException("Guia de entrevista não encontrado", code="interview_guide_not_found")
 
 
 class InterviewGuideService:
@@ -34,7 +32,9 @@ class InterviewGuideService:
         self.llm = llm
         self.interview_guide_repository = InterviewGuideRepository(db)
 
-    async def generate_interview_guide_service(self, file: UploadFile, job_description: str, current_user: User) -> InterviewGuideResponse:
+    async def generate_interview_guide_service(
+        self, file: UploadFile, job_description: str, current_user: User
+    ) -> InterviewGuideResponse:
         """
         Service para geração de guia de entrevista
         """
@@ -52,30 +52,26 @@ class InterviewGuideService:
         interview_guide = await self.interview_guide_repository.create(
             user_id=current_user.id,
             interview_guide=interview_guide_result,
-            created_at=datetime.now(UTC)
+            created_at=datetime.now(UTC),
         )
 
         await self.db.commit()
         await self.db.refresh(interview_guide)
 
-        return InterviewGuideResponse(
-            id=interview_guide.id,
-            interview_guide=interview_guide_result
-        )
+        return InterviewGuideResponse(id=interview_guide.id, interview_guide=interview_guide_result)
 
-    async def get_interview_guide_service(self, current_user: User, skip: int, limit: int) -> InterviewGuideListResponse:
+    async def get_interview_guide_service(
+        self, current_user: User, skip: int, limit: int
+    ) -> InterviewGuideListResponse:
         """
         Serviço para obter guias de entrevista do usuário
         """
         interview_guides, total_count = await self.interview_guide_repository.get_by_user_id(
-            user_id=current_user.id,
-            skip=skip,
-            limit=limit
+            user_id=current_user.id, skip=skip, limit=limit
         )
 
         return InterviewGuideListResponse(
-            interview_guides=interview_guides,
-            total_count=total_count
+            interview_guides=interview_guides, total_count=total_count
         )
 
     async def get_interview_guide_by_id_service(
@@ -85,16 +81,14 @@ class InterviewGuideService:
         Serviço para obter um guia de entrevista específico do usuário
         """
         interview_guide = await self.interview_guide_repository.get_by_id_and_user_id(
-            interview_guide_id=interview_guide_id,
-            user_id=current_user.id
+            interview_guide_id=interview_guide_id, user_id=current_user.id
         )
 
         if not interview_guide:
             raise _guide_not_found()
 
         return InterviewGuideResponse(
-            id=interview_guide.id,
-            interview_guide=interview_guide.interview_guide or {}
+            id=interview_guide.id, interview_guide=interview_guide.interview_guide or {}
         )
 
     async def delete_interview_guide_service(
@@ -104,8 +98,7 @@ class InterviewGuideService:
         Serviço para deletar um guia de entrevista do usuário
         """
         interview_guide = await self.interview_guide_repository.get_by_id_and_user_id(
-            interview_guide_id=interview_guide_id,
-            user_id=current_user.id
+            interview_guide_id=interview_guide_id, user_id=current_user.id
         )
 
         if not interview_guide:
@@ -115,6 +108,5 @@ class InterviewGuideService:
         await self.db.commit()
 
         return InterviewGuideDeleteResponse(
-            message="Guia de entrevista deletado com sucesso",
-            deleted_id=interview_guide_id
+            message="Guia de entrevista deletado com sucesso", deleted_id=interview_guide_id
         )

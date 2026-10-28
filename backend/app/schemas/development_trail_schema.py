@@ -20,9 +20,15 @@ class DevelopmentTrailRequest(BaseModel):
         None, max_length=30, examples=[["Back-End", "Data Science"]]
     )
     current_level: str | None = Field(None, max_length=50, examples=["Intermediário"])
-    professional_goal: str = Field(..., min_length=1, max_length=200, examples=["Desenvolvimento Back-End"])
-    available_time_week: str | None = Field(None, max_length=100, examples=["Até 15 horas semanais"])
-    goal_timeframe: str | None = Field(None, max_length=100, examples=["Conseguir estágio em até 6 meses"])
+    professional_goal: str = Field(
+        ..., min_length=1, max_length=200, examples=["Desenvolvimento Back-End"]
+    )
+    available_time_week: str | None = Field(
+        None, max_length=100, examples=["Até 15 horas semanais"]
+    )
+    goal_timeframe: str | None = Field(
+        None, max_length=100, examples=["Conseguir estágio em até 6 meses"]
+    )
     additional_information: str | None = Field(
         None, max_length=1000, examples=["Tenho interesse em DevOps e bancos de dados"]
     )

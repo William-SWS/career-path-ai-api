@@ -12,6 +12,7 @@ from app.models.token_blacklist import TokenBlacklist
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 class TokenType(str, Enum):
     """Claim `type`: impede que um tipo de token seja aceito no lugar de outro."""
 
@@ -58,9 +59,7 @@ async def add_token_to_blacklist(token: str, db: AsyncSession):
     """
     try:
         # Tenta decodificar o token para pegar a expiração real
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         expires_at = datetime.fromtimestamp(payload["exp"], tz=UTC)
 
     except JWTError:

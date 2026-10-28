@@ -1,4 +1,5 @@
 """Rate limit contra um Redis de verdade (defina REDIS_TEST_URL, ex.: redis://localhost:56379/0)."""
+
 import asyncio
 import os
 import time
@@ -10,7 +11,9 @@ from app.core.exceptions import RateLimitException
 from app.core.rate_limit import build_rate_limiter
 
 REDIS_URL = os.getenv("REDIS_TEST_URL")
-pytestmark = pytest.mark.skipif(not REDIS_URL, reason="defina REDIS_TEST_URL para testar com Redis real")
+pytestmark = pytest.mark.skipif(
+    not REDIS_URL, reason="defina REDIS_TEST_URL para testar com Redis real"
+)
 
 
 def redis_limiter(url=None):

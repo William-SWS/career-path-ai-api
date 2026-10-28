@@ -1,4 +1,3 @@
-
 class AppException(Exception):
     status_code: int = 400
     default_code: str = "application_error"

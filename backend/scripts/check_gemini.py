@@ -5,6 +5,7 @@ Uso (a partir de backend/):
 
 A chave nunca é impressa. Não faz parte da suíte de testes (usa a rede e a cota real).
 """
+
 import argparse
 import asyncio
 import sys
@@ -20,7 +21,9 @@ from app.llm.prompts import Prompt
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--env-file", default=".env")
-    parser.add_argument("--model", help="modelo para o teste de chamada (padrão: GEMINI_MODEL do env-file)")
+    parser.add_argument(
+        "--model", help="modelo para o teste de chamada (padrão: GEMINI_MODEL do env-file)"
+    )
     args = parser.parse_args()
 
     env = dotenv_values(args.env_file)
@@ -38,7 +41,9 @@ def main() -> int:
     model_name = args.model or env.get("GEMINI_MODEL") or "gemini-2.5-flash"
     print(f"\nChamada mínima com {model_name}...")
     gemini = GeminiClient(api_key=api_key, model=model_name, timeout_seconds=30)
-    params = GenerationParams(temperature=0, top_p=1, top_k=1, max_output_tokens=1024)  # modelos com thinking gastam parte do limite raciocinando
+    params = GenerationParams(
+        temperature=0, top_p=1, top_k=1, max_output_tokens=1024
+    )  # modelos com thinking gastam parte do limite raciocinando
     try:
         text = asyncio.run(gemini.generate(Prompt(system="", user="Responda apenas: ok"), params))
     except AppException as exc:

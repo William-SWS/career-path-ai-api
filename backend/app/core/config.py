@@ -10,9 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # hide_input_in_errors: um erro de validação nunca imprime o valor recebido
     # (ex.: uma SECRET_KEY curta) no log de inicialização.
-    model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", hide_input_in_errors=True
-    )
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
     # App
     API_V1_STR: str = "/api/v1"
@@ -28,7 +26,7 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URI(self) -> str:
-        return(
+        return (
             "postgresql+asyncpg://"
             f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -94,8 +92,12 @@ class Settings(BaseSettings):
     RATE_LIMIT_AI_GLOBAL: str = "20/minute"
 
     @field_validator(
-        "RATE_LIMIT_LOGIN", "RATE_LIMIT_REGISTER", "RATE_LIMIT_FORGOT_PASSWORD",
-        "RATE_LIMIT_RESET_PASSWORD", "RATE_LIMIT_AI_USER_HOURLY", "RATE_LIMIT_AI_USER_BURST",
+        "RATE_LIMIT_LOGIN",
+        "RATE_LIMIT_REGISTER",
+        "RATE_LIMIT_FORGOT_PASSWORD",
+        "RATE_LIMIT_RESET_PASSWORD",
+        "RATE_LIMIT_AI_USER_HOURLY",
+        "RATE_LIMIT_AI_USER_BURST",
         "RATE_LIMIT_AI_GLOBAL",
     )
     @classmethod

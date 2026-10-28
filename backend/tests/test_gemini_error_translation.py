@@ -1,4 +1,5 @@
 """Falhas do provedor de IA viram exceções de domínio, sem detalhes do SDK."""
+
 import asyncio
 from types import SimpleNamespace
 
@@ -56,8 +57,12 @@ class Sleeper:
 def make_client(models, timeout=20, sleeper=None, **kwargs):
     sdk = SimpleNamespace(aio=SimpleNamespace(models=models))
     return GeminiClient(
-        api_key="k", model="test-model", timeout_seconds=timeout, client=sdk,
-        sleep=sleeper or Sleeper(), **kwargs,
+        api_key="k",
+        model="test-model",
+        timeout_seconds=timeout,
+        client=sdk,
+        sleep=sleeper or Sleeper(),
+        **kwargs,
     )
 
 
@@ -81,7 +86,9 @@ def test_returns_text_and_sends_model_prompt_and_config():
 
 
 def test_quota_exhausted_is_rate_limit():
-    models = FakeModels(error=errors.APIError(429, {"error": {"message": SECRET, "status": "RESOURCE_EXHAUSTED"}}))
+    models = FakeModels(
+        error=errors.APIError(429, {"error": {"message": SECRET, "status": "RESOURCE_EXHAUSTED"}})
+    )
 
     with pytest.raises(RateLimitException) as exc_info:
         generate(models)
@@ -191,6 +198,7 @@ def test_thinking_budget_reaches_the_sdk(budget):
 
 # ---------- retry ----------
 
+
 def api_error(code):
     return errors.APIError(code, {"error": {"message": "m", "status": "S"}})
 
@@ -209,8 +217,11 @@ class ScriptedModels(FakeModels):
         return self.response
 
 
-@pytest.mark.parametrize("failure", [api_error(503), api_error(500), api_error(504), httpx.ConnectError("x")],
-                         ids=["503", "500", "504", "connect"])
+@pytest.mark.parametrize(
+    "failure",
+    [api_error(503), api_error(500), api_error(504), httpx.ConnectError("x")],
+    ids=["503", "500", "504", "connect"],
+)
 def test_transient_failure_is_retried_and_then_succeeds(failure):
     models = ScriptedModels([failure], response("ok"))
     sleeper = Sleeper()
@@ -225,11 +236,15 @@ def test_backoff_grows_exponentially_with_jitter():
     models = ScriptedModels([api_error(503), api_error(503)], response("ok"))
     sleeper = Sleeper()
 
-    asyncio.run(make_client(models, sleeper=sleeper, max_attempts=3, backoff_base_seconds=2.0).generate(PROMPT, PARAMS))
+    asyncio.run(
+        make_client(models, sleeper=sleeper, max_attempts=3, backoff_base_seconds=2.0).generate(
+            PROMPT, PARAMS
+        )
+    )
 
     first, second = sleeper.delays
-    assert 1.0 <= first <= 2.0      # 2s * [0.5, 1]
-    assert 2.0 <= second <= 4.0     # 4s * [0.5, 1]
+    assert 1.0 <= first <= 2.0  # 2s * [0.5, 1]
+    assert 2.0 <= second <= 4.0  # 4s * [0.5, 1]
 
 
 def test_gives_up_after_max_attempts_and_reports_provider_error():
@@ -251,8 +266,11 @@ def test_max_attempts_one_disables_retry():
     assert len(models.calls) == 1
 
 
-@pytest.mark.parametrize("failure", [api_error(429), api_error(400), api_error(403), httpx.ReadTimeout("x")],
-                         ids=["quota", "400", "403", "timeout"])
+@pytest.mark.parametrize(
+    "failure",
+    [api_error(429), api_error(400), api_error(403), httpx.ReadTimeout("x")],
+    ids=["quota", "400", "403", "timeout"],
+)
 def test_non_transient_failures_are_not_retried(failure):
     models = ScriptedModels([failure], response("never"))
 
@@ -288,18 +306,30 @@ def test_usage_is_logged_without_prompt_or_response_content(caplog):
 
 # ---------- parse_structured_response ----------
 
+
 class Item(BaseModel):
     name: str
     tags: list[str]
 
 
 def test_parse_structured_response_returns_the_validated_model():
-    assert parse_structured_response(Item, '{"name": "a", "tags": ["x"]}') == Item(name="a", tags=["x"])
+    assert parse_structured_response(Item, '{"name": "a", "tags": ["x"]}') == Item(
+        name="a", tags=["x"]
+    )
 
 
 @pytest.mark.parametrize(
     "text",
-    ["", "not json", "[]", "null", "{}", '{"name": "a"}', '{"name": 1, "tags": []}', '{"name": "a", "tags": ["x"]'],
+    [
+        "",
+        "not json",
+        "[]",
+        "null",
+        "{}",
+        '{"name": "a"}',
+        '{"name": 1, "tags": []}',
+        '{"name": "a", "tags": ["x"]',
+    ],
     ids=repr,
 )
 def test_parse_structured_response_rejects_anything_outside_the_contract(text):

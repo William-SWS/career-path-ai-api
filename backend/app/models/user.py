@@ -23,7 +23,9 @@ class User(Base):
     )
 
     resume_analyses = relationship("ResumeAnalysis", back_populates="user", cascade="all, delete")
-    development_trails = relationship("DevelopmentTrail", back_populates="user", cascade="all, delete")
+    development_trails = relationship(
+        "DevelopmentTrail", back_populates="user", cascade="all, delete"
+    )
     interview_guide = relationship("InterviewGuide", back_populates="user", cascade="all, delete")
 
     def __init__(self, name: str, email: str, password_hash: str):

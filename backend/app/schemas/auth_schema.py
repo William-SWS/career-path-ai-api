@@ -49,14 +49,10 @@ class RegisterRequest(BaseModel):
         # Bloqueia números e símbolos
         pattern = r"^[A-Za-zÀ-ÿ ]+$"
         if not re.match(pattern, name):
-            raise ValueError(
-                "O nome deve conter apenas letras e espaços."
-            )
+            raise ValueError("O nome deve conter apenas letras e espaços.")
 
         if len(name.split()) < 2:
-            raise ValueError(
-                "Informe nome e sobrenome."
-            )
+            raise ValueError("Informe nome e sobrenome.")
 
         return name
 

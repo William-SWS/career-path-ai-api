@@ -14,9 +14,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login
 
 
 def _unauthorized(detail: str) -> HTTPException:
-    return HTTPException(
-        status_code=401, detail=detail, headers={"WWW-Authenticate": "Bearer"}
-    )
+    return HTTPException(status_code=401, detail=detail, headers={"WWW-Authenticate": "Bearer"})
 
 
 async def _authenticate(token: str, token_type: TokenType, db: AsyncSession) -> User:

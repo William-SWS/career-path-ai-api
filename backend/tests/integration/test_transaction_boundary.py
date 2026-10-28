@@ -1,4 +1,5 @@
 """Fronteira transacional contra um Postgres real, com as migrations aplicadas."""
+
 import asyncio
 from types import SimpleNamespace
 
@@ -60,7 +61,9 @@ def test_register_persists_the_user_with_a_hashed_password():
         async with open_sessions() as sessions:
             async with sessions() as session, sessions() as reader:
                 await UserService(session).create_user_account(
-                    RegisterRequest(name="Maria Silva", email="maria@example.com", password="Abcdef12")
+                    RegisterRequest(
+                        name="Maria Silva", email="maria@example.com", password="Abcdef12"
+                    )
                 )
 
                 stored = await UserRepository(reader).get_by_email("maria@example.com")
@@ -108,13 +111,17 @@ def test_trail_status_update_is_committed_by_the_service():
         async with open_sessions() as sessions:
             async with sessions() as setup:
                 user_id = (await _create_user(setup)).id
-                trail_id = (await DevelopmentTrailRepository(setup).create(
-                    user_id=user_id, development_trail={"a": 1}, status="In Progress"
-                )).id
+                trail_id = (
+                    await DevelopmentTrailRepository(setup).create(
+                        user_id=user_id, development_trail={"a": 1}, status="In Progress"
+                    )
+                ).id
                 await setup.commit()
             async with sessions() as session, sessions() as reader:
                 owner = SimpleNamespace(id=user_id)
-                response = await DevelopmentTrailService(session, FakeLLM()).update_development_trail_status_service(
+                response = await DevelopmentTrailService(
+                    session, FakeLLM()
+                ).update_development_trail_status_service(
                     trail_id, DevelopmentTrailUpdateRequest(status="Completed"), owner
                 )
                 assert response.status == "Completed"

@@ -14,15 +14,11 @@ class BaseRepository(Generic[ModelType]):
         self.session = session
 
     async def get_by_id(self, id: int) -> ModelType | None:
-        result = await self.session.execute(
-            select(self.model).where(self.model.id == id)
-        )
+        result = await self.session.execute(select(self.model).where(self.model.id == id))
         return result.scalar_one_or_none()
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> list[ModelType]:
-        result = await self.session.execute(
-            select(self.model).offset(skip).limit(limit)
-        )
+        result = await self.session.execute(select(self.model).offset(skip).limit(limit))
         return result.scalars().all()
 
     # Os métodos de escrita só fazem flush: o commit (e o rollback) pertencem ao
@@ -47,7 +43,5 @@ class BaseRepository(Generic[ModelType]):
         return obj
 
     async def delete(self, id: int) -> None:
-        await self.session.execute(
-            delete(self.model).where(self.model.id == id)
-        )
+        await self.session.execute(delete(self.model).where(self.model.id == id))
         await self.session.flush()

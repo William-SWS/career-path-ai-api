@@ -1,4 +1,5 @@
 """Regras dos serviços de IA: repositórios em memória e LLM substituído."""
+
 import asyncio
 import io
 import json
@@ -88,8 +89,12 @@ def stub_pdf(monkeypatch, module, text="cv text"):
 
 def trail_record(id=1, user_id=USER.id):
     return SimpleNamespace(
-        id=id, user_id=user_id, development_trail={"phases": []},
-        status="In Progress", created_at=NOW, updated_at=NOW,
+        id=id,
+        user_id=user_id,
+        development_trail={"phases": []},
+        status="In Progress",
+        created_at=NOW,
+        updated_at=NOW,
     )
 
 
@@ -104,8 +109,11 @@ def guide_record(id=1, user_id=USER.id, content=_DEFAULT_CONTENT):
 
 def analysis_record(id=1, user_id=USER.id):
     return SimpleNamespace(
-        id=id, user_id=user_id, original_filename="cv.pdf",
-        analysis_result={"professional_summary": "x"}, created_at=NOW,
+        id=id,
+        user_id=user_id,
+        original_filename="cv.pdf",
+        analysis_result={"professional_summary": "x"},
+        created_at=NOW,
     )
 
 
@@ -113,21 +121,30 @@ def pdf_upload():
     return UploadFile(file=io.BytesIO(b"%PDF"), filename="cv.pdf")
 
 
-TRAIL_REQUEST = DevelopmentTrailRequest(name="Maria", skills=["Python"], professional_goal="Back-End")
+TRAIL_REQUEST = DevelopmentTrailRequest(
+    name="Maria", skills=["Python"], professional_goal="Back-End"
+)
 
 
 # ---------- geração: o resultado da IA só é salvo se for utilizável
 
 UNUSABLE_AI_TEXTS = [
-    "{}", "[]", "null", '"just text"', "no json at all", "",
+    "{}",
+    "[]",
+    "null",
+    '"just text"',
+    "no json at all",
+    "",
     '{"user_profile_summary": {"current_profile": "x"}}',  # fora do contrato
-    '```json\n{}\n```',  # markdown não é consertado
+    "```json\n{}\n```",  # markdown não é consertado
 ]
 
 
 @pytest.mark.parametrize("bad_text", UNUSABLE_AI_TEXTS, ids=repr)
 def test_trail_with_unusable_ai_result_is_not_saved(bad_text):
-    service, repo = make_service(DevelopmentTrailService, "development_trail_repository", llm=FakeLLM(bad_text))
+    service, repo = make_service(
+        DevelopmentTrailService, "development_trail_repository", llm=FakeLLM(bad_text)
+    )
 
     with pytest.raises(ExternalServiceException) as exc_info:
         run(service.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER))
@@ -151,9 +168,13 @@ def test_trail_is_saved_for_the_requesting_user_and_the_prompt_reaches_the_model
     assert commits(service) == 1
 
 
-@pytest.mark.parametrize("error", [RateLimitException("slow down"), ExternalServiceException("down")])
+@pytest.mark.parametrize(
+    "error", [RateLimitException("slow down"), ExternalServiceException("down")]
+)
 def test_provider_errors_propagate_and_nothing_is_saved(error):
-    service, repo = make_service(DevelopmentTrailService, "development_trail_repository", llm=FakeLLM(error=error))
+    service, repo = make_service(
+        DevelopmentTrailService, "development_trail_repository", llm=FakeLLM(error=error)
+    )
 
     with pytest.raises(type(error)):
         run(service.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER))
@@ -163,7 +184,9 @@ def test_provider_errors_propagate_and_nothing_is_saved(error):
 
 
 def test_interview_guide_with_unusable_ai_result_is_not_saved(monkeypatch):
-    service, repo = make_service(InterviewGuideService, "interview_guide_repository", llm=FakeLLM("{}"))
+    service, repo = make_service(
+        InterviewGuideService, "interview_guide_repository", llm=FakeLLM("{}")
+    )
     stub_pdf(monkeypatch, interview_guide_services)
 
     with pytest.raises(ExternalServiceException):
@@ -185,7 +208,9 @@ def test_interview_guide_is_saved_and_receives_resume_and_job(monkeypatch):
 
 
 def test_resume_analysis_with_unusable_ai_result_is_not_saved(monkeypatch):
-    service, repo = make_service(ResumeAnalysisService, "resume_analysis_repository", llm=FakeLLM("null"))
+    service, repo = make_service(
+        ResumeAnalysisService, "resume_analysis_repository", llm=FakeLLM("null")
+    )
     stub_pdf(monkeypatch, resume_analysis_services)
 
     with pytest.raises(ExternalServiceException):
@@ -207,6 +232,7 @@ def test_resume_analysis_is_saved_and_receives_the_resume_text(monkeypatch):
 
 # ---------- a conexão é devolvida ao pool antes de esperar o LLM
 
+
 class ConnectionProbeLLM(FakeLLM):
     """Registra quantas vezes a sessão foi fechada no instante em que o LLM é chamado."""
 
@@ -223,12 +249,24 @@ class ConnectionProbeLLM(FakeLLM):
 @pytest.mark.parametrize(
     "cls, attr, schema, call",
     [
-        (DevelopmentTrailService, "development_trail_repository", DevelopmentTrailOutput,
-         lambda svc: svc.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER)),
-        (InterviewGuideService, "interview_guide_repository", InterviewGuideOutput,
-         lambda svc: svc.generate_interview_guide_service(pdf_upload(), "job", USER)),
-        (ResumeAnalysisService, "resume_analysis_repository", ResumeAnalysisOutput,
-         lambda svc: svc.analyze_resume_service(pdf_upload(), USER)),
+        (
+            DevelopmentTrailService,
+            "development_trail_repository",
+            DevelopmentTrailOutput,
+            lambda svc: svc.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER),
+        ),
+        (
+            InterviewGuideService,
+            "interview_guide_repository",
+            InterviewGuideOutput,
+            lambda svc: svc.generate_interview_guide_service(pdf_upload(), "job", USER),
+        ),
+        (
+            ResumeAnalysisService,
+            "resume_analysis_repository",
+            ResumeAnalysisOutput,
+            lambda svc: svc.analyze_resume_service(pdf_upload(), USER),
+        ),
     ],
     ids=["trail", "interview", "resume"],
 )
@@ -248,25 +286,60 @@ def test_session_is_released_before_calling_the_llm(monkeypatch, cls, attr, sche
 # ---------- recursos de outro usuário ou inexistentes: sempre 404
 
 CASES = [
-    (DevelopmentTrailService, "development_trail_repository", trail_record,
-     "get_development_trail_by_id_service", "development_trail_not_found"),
-    (DevelopmentTrailService, "development_trail_repository", trail_record,
-     "delete_development_trail_service", "development_trail_not_found"),
-    (InterviewGuideService, "interview_guide_repository", guide_record,
-     "get_interview_guide_by_id_service", "interview_guide_not_found"),
-    (InterviewGuideService, "interview_guide_repository", guide_record,
-     "delete_interview_guide_service", "interview_guide_not_found"),
-    (ResumeAnalysisService, "resume_analysis_repository", analysis_record,
-     "get_resume_analysis_by_id_service", "resume_analysis_not_found"),
-    (ResumeAnalysisService, "resume_analysis_repository", analysis_record,
-     "delete_resume_analysis_service", "resume_analysis_not_found"),
+    (
+        DevelopmentTrailService,
+        "development_trail_repository",
+        trail_record,
+        "get_development_trail_by_id_service",
+        "development_trail_not_found",
+    ),
+    (
+        DevelopmentTrailService,
+        "development_trail_repository",
+        trail_record,
+        "delete_development_trail_service",
+        "development_trail_not_found",
+    ),
+    (
+        InterviewGuideService,
+        "interview_guide_repository",
+        guide_record,
+        "get_interview_guide_by_id_service",
+        "interview_guide_not_found",
+    ),
+    (
+        InterviewGuideService,
+        "interview_guide_repository",
+        guide_record,
+        "delete_interview_guide_service",
+        "interview_guide_not_found",
+    ),
+    (
+        ResumeAnalysisService,
+        "resume_analysis_repository",
+        analysis_record,
+        "get_resume_analysis_by_id_service",
+        "resume_analysis_not_found",
+    ),
+    (
+        ResumeAnalysisService,
+        "resume_analysis_repository",
+        analysis_record,
+        "delete_resume_analysis_service",
+        "resume_analysis_not_found",
+    ),
 ]
 
 
-@pytest.mark.parametrize("cls, repo_attr, make_record, method, code", CASES,
-                         ids=[f"{c[0].__name__}.{c[3]}" for c in CASES])
+@pytest.mark.parametrize(
+    "cls, repo_attr, make_record, method, code",
+    CASES,
+    ids=[f"{c[0].__name__}.{c[3]}" for c in CASES],
+)
 @pytest.mark.parametrize("owner_id", [None, OTHER_USER_ID], ids=["missing", "other-users"])
-def test_unknown_or_foreign_resource_is_not_found(cls, repo_attr, make_record, method, code, owner_id):
+def test_unknown_or_foreign_resource_is_not_found(
+    cls, repo_attr, make_record, method, code, owner_id
+):
     records = [make_record(id=1, user_id=owner_id)] if owner_id else []
     service, repo = make_service(cls, repo_attr, *records)
 
@@ -279,7 +352,9 @@ def test_unknown_or_foreign_resource_is_not_found(cls, repo_attr, make_record, m
 
 
 def test_delete_removes_own_resource():
-    service, repo = make_service(DevelopmentTrailService, "development_trail_repository", trail_record())
+    service, repo = make_service(
+        DevelopmentTrailService, "development_trail_repository", trail_record()
+    )
 
     response = run(service.delete_development_trail_service(1, USER))
 
@@ -288,23 +363,34 @@ def test_delete_removes_own_resource():
 
 
 def test_update_trail_status():
-    service, _ = make_service(DevelopmentTrailService, "development_trail_repository", trail_record())
+    service, _ = make_service(
+        DevelopmentTrailService, "development_trail_repository", trail_record()
+    )
 
-    response = run(service.update_development_trail_status_service(
-        1, DevelopmentTrailUpdateRequest(status="Completed"), USER))
+    response = run(
+        service.update_development_trail_status_service(
+            1, DevelopmentTrailUpdateRequest(status="Completed"), USER
+        )
+    )
 
     assert response.status == "Completed"
 
 
 def test_update_status_of_foreign_trail_is_not_found():
-    service, _ = make_service(DevelopmentTrailService, "development_trail_repository", trail_record(user_id=OTHER_USER_ID))
+    service, _ = make_service(
+        DevelopmentTrailService, "development_trail_repository", trail_record(user_id=OTHER_USER_ID)
+    )
 
     with pytest.raises(NotFoundException):
-        run(service.update_development_trail_status_service(
-            1, DevelopmentTrailUpdateRequest(status="Completed"), USER))
+        run(
+            service.update_development_trail_status_service(
+                1, DevelopmentTrailUpdateRequest(status="Completed"), USER
+            )
+        )
 
 
 # ---------- listagem vazia não é erro
+
 
 def test_empty_trail_list_is_a_valid_empty_response():
     service, _ = make_service(DevelopmentTrailService, "development_trail_repository")
@@ -316,17 +402,22 @@ def test_empty_trail_list_is_a_valid_empty_response():
 
 
 def test_interview_guide_without_content_is_returned_as_empty_object():
-    service, _ = make_service(InterviewGuideService, "interview_guide_repository", guide_record(content=None))
+    service, _ = make_service(
+        InterviewGuideService, "interview_guide_repository", guide_record(content=None)
+    )
 
     assert run(service.get_interview_guide_by_id_service(1, USER)).interview_guide == {}
 
 
 # ---------- fronteira transacional: um commit por escrita, nenhum por leitura ou falha
 
+
 def test_writes_commit_once_and_reads_never_commit():
     trail, _ = make_service(DevelopmentTrailService, "development_trail_repository", trail_record())
     guide, _ = make_service(InterviewGuideService, "interview_guide_repository", guide_record())
-    analysis, _ = make_service(ResumeAnalysisService, "resume_analysis_repository", analysis_record())
+    analysis, _ = make_service(
+        ResumeAnalysisService, "resume_analysis_repository", analysis_record()
+    )
 
     run(trail.get_development_trail_service(USER, 0, 10))
     run(trail.get_development_trail_by_id_service(1, USER))
@@ -336,7 +427,11 @@ def test_writes_commit_once_and_reads_never_commit():
     run(analysis.get_resume_analysis_by_id_service(1, USER))
     assert [commits(s) for s in (trail, guide, analysis)] == [0, 0, 0]
 
-    run(trail.update_development_trail_status_service(1, DevelopmentTrailUpdateRequest(status="Completed"), USER))
+    run(
+        trail.update_development_trail_status_service(
+            1, DevelopmentTrailUpdateRequest(status="Completed"), USER
+        )
+    )
     run(trail.delete_development_trail_service(1, USER))
     run(guide.delete_interview_guide_service(1, USER))
     run(analysis.delete_resume_analysis_service(1, USER))

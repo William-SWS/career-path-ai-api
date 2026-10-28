@@ -14,12 +14,14 @@ from app.services.interview_guide_services import InterviewGuideService
 router = APIRouter()
 
 
-@router.post("/", response_model=InterviewGuideResponse, dependencies=[Depends(limit_ai_generation)])
+@router.post(
+    "/", response_model=InterviewGuideResponse, dependencies=[Depends(limit_ai_generation)]
+)
 async def generate_interview_guide(
     file: UploadFile = File(...),
     job_description: str = Form(..., min_length=1, max_length=5000),
     current_user: User = Depends(verify_token),
-    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service)
+    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service),
 ):
     """
     Gera um roteiro detalhado para entrevista baseado no currículo e descrição da vaga
@@ -35,7 +37,7 @@ async def get_my_interview_guides(
     current_user: User = Depends(verify_token),
     skip: int = Query(0, ge=0, description="Número de itens para pular"),
     limit: int = Query(100, ge=1, le=100, description="Número máximo de itens por página"),
-    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service)
+    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service),
 ):
     """
     Retorna todos os interview_guides do usuário autenticado.
@@ -50,7 +52,7 @@ async def get_my_interview_guides(
 async def get_interview_guide(
     interview_guide_id: int,
     current_user: User = Depends(verify_token),
-    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service)
+    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service),
 ):
     """
     Retorna um guia de entrevista específico do usuário.
@@ -65,7 +67,7 @@ async def get_interview_guide(
 async def delete_interview_guide(
     interview_guide_id: int,
     current_user: User = Depends(verify_token),
-    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service)
+    interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service),
 ):
     """
     Deleta um guia de entrevista do usuário.

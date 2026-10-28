@@ -1,4 +1,5 @@
 """O schema que as migrations constroem tem que ser o que os modelos declaram."""
+
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext

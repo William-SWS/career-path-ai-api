@@ -1,4 +1,5 @@
 """Garante que tokens e detalhes de depuração não vazam (stdout, endpoints)."""
+
 import asyncio
 from types import SimpleNamespace
 

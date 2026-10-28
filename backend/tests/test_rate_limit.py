@@ -1,4 +1,5 @@
 """Rate limit: política por rota, chaves, falha do Redis e resposta 429 no envelope padrão."""
+
 import asyncio
 import hashlib
 
@@ -45,6 +46,7 @@ def run(coro):
 
 # ---------- RateLimiter ----------
 
+
 def test_allows_up_to_the_limit_then_blocks_with_retry_after():
     limiter = memory_limiter()
 
@@ -66,8 +68,8 @@ def test_keys_and_namespaces_are_independent():
 
     async def scenario():
         await limiter.hit("login", "1/minute", "ip-a")
-        await limiter.hit("login", "1/minute", "ip-b")       # outra chave
-        await limiter.hit("register", "1/minute", "ip-a")    # outro namespace
+        await limiter.hit("login", "1/minute", "ip-b")  # outra chave
+        await limiter.hit("register", "1/minute", "ip-a")  # outro namespace
         with pytest.raises(RateLimitException):
             await limiter.hit("login", "1/minute", "ip-a")
 
@@ -95,9 +97,9 @@ def test_after_a_storage_failure_it_stops_asking_storage_until_the_cooldown_ends
             await limiter.hit("login", "1/minute", "k")
 
     run(hits(5))
-    assert storage.calls == 1          # só a primeira requisição pagou o timeout
+    assert storage.calls == 1  # só a primeira requisição pagou o timeout
 
-    now[0] += 11                       # passou o cooldown: tenta o storage de novo
+    now[0] += 11  # passou o cooldown: tenta o storage de novo
     run(hits(2))
     assert storage.calls == 2
 
@@ -116,16 +118,17 @@ def test_fail_closed_keeps_refusing_during_the_cooldown_without_calling_storage(
 def test_storage_recovery_is_noticed_after_the_cooldown():
     now = [0.0]
     limiter = RateLimiter(BrokenStorage(), clock=lambda: now[0])
-    run(limiter.hit("login", "1/minute", "k"))                       # falha, abre o cooldown
-    limiter._strategy = memory_limiter()._strategy                    # o Redis "voltou"
+    run(limiter.hit("login", "1/minute", "k"))  # falha, abre o cooldown
+    limiter._strategy = memory_limiter()._strategy  # o Redis "voltou"
 
     now[0] += 11
     run(limiter.hit("login", "1/minute", "k"))
-    with pytest.raises(RateLimitException):                           # e o limite volta a valer
+    with pytest.raises(RateLimitException):  # e o limite volta a valer
         run(limiter.hit("login", "1/minute", "k"))
 
 
 # ---------- IP do cliente ----------
+
 
 class FakeRequest:
     def __init__(self, peer="10.0.0.1", forwarded=None):
@@ -159,6 +162,7 @@ def test_short_forwarded_header_falls_back_to_the_peer(monkeypatch):
 
 
 # ---------- dependências em uma app mínima ----------
+
 
 @pytest.fixture
 def mini_app(monkeypatch):
@@ -206,19 +210,26 @@ def test_login_limit_is_per_account_not_per_ip(mini_app, monkeypatch):
         assert client.post("/login", json={"email": "a@example.com"}).status_code == 200
 
     assert client.post("/login", json={"email": "A@Example.com "}).status_code == 429  # mesma conta
-    assert client.post("/login", json={"email": "b@example.com"}).status_code == 200   # outra conta, mesmo IP
+    assert (
+        client.post("/login", json={"email": "b@example.com"}).status_code == 200
+    )  # outra conta, mesmo IP
 
 
 def test_login_body_is_still_delivered_to_the_route_after_the_limiter_reads_it(mini_app):
     app, _ = mini_app
 
-    assert TestClient(app).post("/login", json={"email": "a@example.com", "x": 1}).json() == {"email": "a@example.com", "x": 1}
+    assert TestClient(app).post("/login", json={"email": "a@example.com", "x": 1}).json() == {
+        "email": "a@example.com",
+        "x": 1,
+    }
 
 
 def test_login_limiter_ignores_a_broken_body_instead_of_failing(mini_app):
     app, _ = mini_app
 
-    response = TestClient(app).post("/login", content="not json", headers={"content-type": "application/json"})
+    response = TestClient(app).post(
+        "/login", content="not json", headers={"content-type": "application/json"}
+    )
 
     assert response.status_code == 422  # a validação do corpo continua mandando
 
@@ -279,6 +290,7 @@ def test_register_fails_open_when_the_limiter_storage_is_down(mini_app):
 
 
 # ---------- configuração ----------
+
 
 @pytest.mark.parametrize("bad", ["", "5", "five/minute", "5/fortnight", "0/minute"])
 def test_invalid_limit_strings_are_rejected_at_startup(bad):

@@ -1,4 +1,5 @@
 """Access, refresh e reset são tokens distintos: um nunca vale no lugar do outro."""
+
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -70,7 +71,13 @@ def bearer(token: str) -> dict:
         create_token(1, TokenType.REFRESH),
         create_reset_password_token("a@b.co", "hash"),
         sign({"sub": "1", "exp": datetime.now(UTC) + timedelta(minutes=5)}),
-        sign({"sub": "not-a-number", "type": "access", "exp": datetime.now(UTC) + timedelta(minutes=5)}),
+        sign(
+            {
+                "sub": "not-a-number",
+                "type": "access",
+                "exp": datetime.now(UTC) + timedelta(minutes=5),
+            }
+        ),
         sign({"type": "access", "exp": datetime.now(UTC) + timedelta(minutes=5)}),
         expired_token(TokenType.ACCESS),
         "garbage",

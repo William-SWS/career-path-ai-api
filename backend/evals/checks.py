@@ -1,10 +1,26 @@
 """Critérios objetivos e determinísticos sobre a saída do modelo (sem nota subjetiva automática)."""
+
 from collections.abc import Callable
 from typing import Any
 
 from evals.cases import EvalCase
 
-PT_MARKERS = {"de", "para", "com", "em", "uma", "que", "os", "as", "do", "da", "na", "no", "seu", "sua"}
+PT_MARKERS = {
+    "de",
+    "para",
+    "com",
+    "em",
+    "uma",
+    "que",
+    "os",
+    "as",
+    "do",
+    "da",
+    "na",
+    "no",
+    "seu",
+    "sua",
+}
 EN_MARKERS = {"the", "and", "with", "for", "of", "to", "is", "your", "you", "will", "that"}
 
 
@@ -62,10 +78,28 @@ def check_trail(case: EvalCase, out: dict) -> list[tuple[str, tuple[bool, str]]]
     availability = case.trail.available_time_week
     adaptation = out["study_plan_adaptation"]["for_busy_schedule"]
     return _common(case, out) + [
-        ("numero_de_fases", (len(phases) == case.expected_phases, f"{len(phases)} fases, esperado {case.expected_phases}")),
-        ("fases_com_projeto_e_topicos", (all(p["projects"] and p["topics"] for p in phases), "fase sem projeto ou tópicos")),
-        ("cita_interesse_do_usuario", (bool(mentions(full_text(out), interests)), f"nenhum de {interests}")),
-        ("repete_disponibilidade", (availability is None or availability.lower() in adaptation.lower(), f"obtido: {adaptation!r}")),
+        (
+            "numero_de_fases",
+            (
+                len(phases) == case.expected_phases,
+                f"{len(phases)} fases, esperado {case.expected_phases}",
+            ),
+        ),
+        (
+            "fases_com_projeto_e_topicos",
+            (all(p["projects"] and p["topics"] for p in phases), "fase sem projeto ou tópicos"),
+        ),
+        (
+            "cita_interesse_do_usuario",
+            (bool(mentions(full_text(out), interests)), f"nenhum de {interests}"),
+        ),
+        (
+            "repete_disponibilidade",
+            (
+                availability is None or availability.lower() in adaptation.lower(),
+                f"obtido: {adaptation!r}",
+            ),
+        ),
     ]
 
 
@@ -76,13 +110,28 @@ def check_resume(case: EvalCase, out: dict) -> list[tuple[str, tuple[bool, str]]
     return _common(case, out) + [
         ("encontra_skills_do_curriculo", (not missing, f"faltou: {missing}")),
         ("nao_inventa_skills", (not invented, f"inventou: {invented}")),
-        ("nivel_esperado", (out["experience_level"] in case.expected_levels, f"obtido {out['experience_level']}, aceitos {case.expected_levels}")),
+        (
+            "nivel_esperado",
+            (
+                out["experience_level"] in case.expected_levels,
+                f"obtido {out['experience_level']}, aceitos {case.expected_levels}",
+            ),
+        ),
     ]
 
 
 def check_guide(case: EvalCase, out: dict) -> list[tuple[str, tuple[bool, str]]]:
     return _common(case, out) + [
-        ("toca_requisito_da_vaga", (bool(mentions(full_text(out), case.job_keywords)), f"nenhum de {case.job_keywords}")),
-        ("tem_perguntas_comportamentais", (bool(out["behavioral_preparation"]["common_questions"]), "lista vazia")),
-        ("tem_plano_de_estudo", (bool(out["study_plan_timeline"]["immediate_24h"]), "sem ações nas próximas 24h")),
+        (
+            "toca_requisito_da_vaga",
+            (bool(mentions(full_text(out), case.job_keywords)), f"nenhum de {case.job_keywords}"),
+        ),
+        (
+            "tem_perguntas_comportamentais",
+            (bool(out["behavioral_preparation"]["common_questions"]), "lista vazia"),
+        ),
+        (
+            "tem_plano_de_estudo",
+            (bool(out["study_plan_timeline"]["immediate_24h"]), "sem ações nas próximas 24h"),
+        ),
     ]

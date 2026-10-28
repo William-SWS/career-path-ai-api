@@ -4,11 +4,13 @@ O mesmo modelo Pydantic é enviado ao Gemini como `response_schema` (o provedor
 restringe a geração ao formato) e valida a resposta antes de salvar. As chaves
 são as que já ficam gravadas no banco e que o frontend lê; não renomear sem migrar.
 """
+
 from typing import Literal
 
 from pydantic import BaseModel
 
 # ---- trilha de desenvolvimento ----
+
 
 class UserProfileSummary(BaseModel):
     current_profile: str
@@ -55,6 +57,7 @@ class DevelopmentTrailOutput(BaseModel):
 
 
 # ---- guia de entrevista ----
+
 
 class StrengthAnalysis(BaseModel):
     key_strengths: list[str]
@@ -122,6 +125,7 @@ class InterviewGuideOutput(BaseModel):
 
 
 # ---- análise de currículo ----
+
 
 class TechnicalSkills(BaseModel):
     programming_languages: list[str]

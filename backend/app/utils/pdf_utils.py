@@ -29,9 +29,7 @@ async def check_pdf(file: UploadFile) -> str:
         reader = PdfReader(io.BytesIO(file_contents))
 
         if reader.is_encrypted:
-            raise ValidationException(
-                "PDF criptografado não é suportado", code="encrypted_pdf"
-            )
+            raise ValidationException("PDF criptografado não é suportado", code="encrypted_pdf")
 
         if len(reader.pages) > MAX_PDF_PAGES:
             raise ValidationException(
@@ -47,8 +45,6 @@ async def check_pdf(file: UploadFile) -> str:
         raise ValidationException("Não foi possível ler o PDF", code="unreadable_pdf") from exc
 
     if not text.strip():
-        raise ValidationException(
-            "Nenhum texto foi encontrado no PDF", code="pdf_without_text"
-        )
+        raise ValidationException("Nenhum texto foi encontrado no PDF", code="pdf_without_text")
 
     return text

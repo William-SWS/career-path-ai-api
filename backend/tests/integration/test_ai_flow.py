@@ -1,4 +1,5 @@
 """Geração com IA ponta a ponta: HTTP → serviço → Postgres real, com o LLM trocado por FakeLLM."""
+
 import json
 
 import pytest
@@ -27,7 +28,9 @@ def test_generated_trail_is_persisted_and_listed(http, session_tokens):
     assert created.status_code == 200
     listed = http.get(f"{API}/development-trail/", headers=headers).json()
     assert listed["total_count"] == 1
-    assert listed["development_trails"][0]["development_trail"] == sample_output(DevelopmentTrailOutput)
+    assert listed["development_trails"][0]["development_trail"] == sample_output(
+        DevelopmentTrailOutput
+    )
 
 
 def test_invalid_model_output_returns_502_and_saves_nothing(http, session_tokens):

@@ -16,9 +16,7 @@ def cleanup_expired_tokens(db: Session) -> int:
     Remove tokens expirados da blacklist. Quem chama é responsável pelo commit.
     """
     now = datetime.now(UTC)
-    deleted_count = db.query(TokenBlacklist).filter(
-        TokenBlacklist.expires_at < now
-    ).delete()
+    deleted_count = db.query(TokenBlacklist).filter(TokenBlacklist.expires_at < now).delete()
     return deleted_count
 
 

@@ -155,7 +155,9 @@ def test_update_keeping_own_email_is_allowed():
     me = make_user(1, "me@example.com")
     service = make_service(me)
 
-    result = run(service.update_user(UserUpdateRequest(email="me@example.com", name="Maria Souza"), me))
+    result = run(
+        service.update_user(UserUpdateRequest(email="me@example.com", name="Maria Souza"), me)
+    )
 
     assert result.name == "Maria Souza"
 
@@ -195,21 +197,28 @@ def test_reset_password_for_deleted_user_is_not_found():
     token = create_reset_password_token("ghost@example.com", "hash")
 
     with pytest.raises(NotFoundException):
-        run(service.reset_user_password(ResetPasswordRequest(reset_token=token, new_password="Newpass12")))
+        run(
+            service.reset_user_password(
+                ResetPasswordRequest(reset_token=token, new_password="Newpass12")
+            )
+        )
 
 
 # ---------- fronteira transacional: um commit por escrita, nenhum por leitura ou falha
+
 
 def test_successful_writes_commit_exactly_once():
     me = make_user()
     reset_token = create_reset_password_token(me.email, me.password_hash)
     calls = {
         "register": lambda s: s.create_user_account(
-            RegisterRequest(name="Ana Souza", email="ana@example.com", password=PASSWORD)),
+            RegisterRequest(name="Ana Souza", email="ana@example.com", password=PASSWORD)
+        ),
         "update": lambda s: s.update_user(UserUpdateRequest(name="Maria Souza"), me),
         "delete": lambda s: s.delete_user(UserDeleteRequest(password=PASSWORD), me),
         "reset": lambda s: s.reset_user_password(
-            ResetPasswordRequest(reset_token=reset_token, new_password="Newpass12")),
+            ResetPasswordRequest(reset_token=reset_token, new_password="Newpass12")
+        ),
         "logout": lambda s: s.logout(create_token(me.id), me),
     }
 
@@ -222,13 +231,27 @@ def test_successful_writes_commit_exactly_once():
 def test_reads_and_failed_writes_never_commit():
     me = make_user()
     attempts = [
-        (ConflictException, lambda s: s.create_user_account(
-            RegisterRequest(name="Ana Souza", email=me.email, password=PASSWORD))),
+        (
+            ConflictException,
+            lambda s: s.create_user_account(
+                RegisterRequest(name="Ana Souza", email=me.email, password=PASSWORD)
+            ),
+        ),
         (ValidationException, lambda s: s.update_user(UserUpdateRequest(), me)),
-        (PermissionDeniedException, lambda s: s.delete_user(UserDeleteRequest(password="WrongPass1"), me)),
-        (ValidationException, lambda s: s.reset_user_password(
-            ResetPasswordRequest(reset_token="bad", new_password="Newpass12"))),
-        (AuthenticationException, lambda s: s.login(LoginRequest(email=me.email, password="WrongPass1"))),
+        (
+            PermissionDeniedException,
+            lambda s: s.delete_user(UserDeleteRequest(password="WrongPass1"), me),
+        ),
+        (
+            ValidationException,
+            lambda s: s.reset_user_password(
+                ResetPasswordRequest(reset_token="bad", new_password="Newpass12")
+            ),
+        ),
+        (
+            AuthenticationException,
+            lambda s: s.login(LoginRequest(email=me.email, password="WrongPass1")),
+        ),
     ]
 
     for expected, call in attempts:
@@ -260,6 +283,7 @@ def test_logout_does_not_report_success_when_the_blacklist_write_fails():
 
 
 # ---------- logout revoga access e refresh token na mesma transação
+
 
 def stub_blacklist(monkeypatch, already_revoked=()):
     async def is_blacklisted(token, db):
@@ -343,8 +367,13 @@ def test_logout_rejects_a_refresh_token_of_another_user_and_revokes_nothing(monk
 
 # ---------- token de reset de uso único (impressão digital da senha atual)
 
+
 def reset_with(service, token, new_password="Newpass12"):
-    return run(service.reset_user_password(ResetPasswordRequest(reset_token=token, new_password=new_password)))
+    return run(
+        service.reset_user_password(
+            ResetPasswordRequest(reset_token=token, new_password=new_password)
+        )
+    )
 
 
 def test_reset_token_can_be_used_only_once():
@@ -389,7 +418,8 @@ def test_legacy_reset_token_without_password_fingerprint_is_rejected():
     me = make_user()
     legacy = jwt.encode(
         {"sub": me.email, "type": "reset_password", "exp": datetime.now(UTC) + timedelta(hours=1)},
-        settings.SECRET_KEY, settings.ALGORITHM,
+        settings.SECRET_KEY,
+        settings.ALGORITHM,
     )
 
     with pytest.raises(ValidationException):
@@ -415,6 +445,7 @@ def test_different_passwords_yield_different_reset_tokens_fingerprints():
 
 
 # ---------- anti-enumeração de contas
+
 
 def forgot(service, email):
     tasks = BackgroundTasks()

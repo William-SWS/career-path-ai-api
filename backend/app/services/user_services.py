@@ -47,9 +47,7 @@ class UserService:
         self.db = db
         self.user_repository = UserRepository(db)
 
-    async def create_user_account(
-        self, user_data: RegisterRequest
-    ) -> MessageResponse:
+    async def create_user_account(self, user_data: RegisterRequest) -> MessageResponse:
         if await self.user_repository.email_exists(user_data.email):
             raise ConflictException("Esse email já está em uso", code="email_already_registered")
 
@@ -94,7 +92,7 @@ class UserService:
                 access_token=access_token,
                 refresh_token=refresh_token,
                 token_type="Bearer",
-            )
+            ),
         )
 
     async def login_form(self, form_data: OAuth2PasswordRequestForm) -> TokenResponse:
@@ -102,10 +100,10 @@ class UserService:
 
         access_token = create_token(user.id)
         return TokenResponse(
-                access_token=access_token,
-                refresh_token="",
-                token_type="Bearer",
-            )
+            access_token=access_token,
+            refresh_token="",
+            token_type="Bearer",
+        )
 
     async def use_refresh_token(self, user: User) -> RefreshTokenResponse:
         access_token = create_token(user.id)
@@ -145,13 +143,13 @@ class UserService:
 
         if user_data.email and user_data.email != current_user.email:
             if await self.user_repository.email_exists(user_data.email):
-                raise ConflictException("Esse email já está em uso", code="email_already_registered")
+                raise ConflictException(
+                    "Esse email já está em uso", code="email_already_registered"
+                )
 
         updated_data = user_data.model_dump(exclude_unset=True, exclude_none=True)
 
-        updated_user = await self.user_repository.update(
-            current_user.id, **updated_data
-        )
+        updated_user = await self.user_repository.update(current_user.id, **updated_data)
         await self.db.commit()
         await self.db.refresh(updated_user)
 
@@ -181,13 +179,11 @@ class UserService:
         if not user:
             raise NotFoundException("Usuário não encontrado", code="user_not_found")
 
-        return UserGetResponse(
-            email=user.email,
-            name=user.name,
-            created_at=user.created_at
-        )
+        return UserGetResponse(email=user.email, name=user.name, created_at=user.created_at)
 
-    async def forgot_user_password(self, request_data: ForgotPasswordRequest, background_tasks) -> MessageResponse:
+    async def forgot_user_password(
+        self, request_data: ForgotPasswordRequest, background_tasks
+    ) -> MessageResponse:
         """
         Envia o e-mail de reset se a conta existir. A resposta é a mesma nos dois
         casos, para não revelar quais e-mails estão cadastrados.

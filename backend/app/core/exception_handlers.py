@@ -20,9 +20,7 @@ def build_error_response(
     error = {"status": status_code, "code": code, "message": message}
     if details:
         error["details"] = details
-    return JSONResponse(
-        status_code=status_code, content={"error": error}, headers=headers
-    )
+    return JSONResponse(status_code=status_code, content={"error": error}, headers=headers)
 
 
 def _validation_details(exc: RequestValidationError) -> list[dict]:
@@ -46,7 +44,6 @@ def register_exception_handlers(app):
             headers=exc.headers,
         )
 
-
     @app.exception_handler(RequestValidationError)
     async def request_validation_handler(request: Request, exc: RequestValidationError):
         return build_error_response(
@@ -56,7 +53,6 @@ def register_exception_handlers(app):
             details=_validation_details(exc),
         )
 
-
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         return build_error_response(
@@ -65,7 +61,6 @@ def register_exception_handlers(app):
             code="http_error",
             headers=exc.headers,
         )
-
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):

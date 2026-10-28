@@ -9,10 +9,9 @@ from app.services.resume_analysis_services import ResumeAnalysisService
 from app.services.user_services import UserService
 
 
-async def get_user_service(
-    db: AsyncSession = Depends(get_db)
-) -> UserService:
+async def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
     return UserService(db)
+
 
 async def get_resume_analysis_service(
     db: AsyncSession = Depends(get_db),
@@ -20,11 +19,13 @@ async def get_resume_analysis_service(
 ) -> ResumeAnalysisService:
     return ResumeAnalysisService(db, llm)
 
+
 async def get_interview_guide_service(
     db: AsyncSession = Depends(get_db),
     llm: LLMClient = Depends(get_llm_client),
 ) -> InterviewGuideService:
     return InterviewGuideService(db, llm)
+
 
 async def get_development_trail_service(
     db: AsyncSession = Depends(get_db),

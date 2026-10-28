@@ -133,7 +133,10 @@ class GeminiClient:
                 delay = self.backoff_base_seconds * 2 ** (attempt - 1) * random.uniform(0.5, 1.0)
                 logger.warning(
                     "Gemini falhou (%s), tentativa %s/%s; nova tentativa em %.1fs",
-                    type(exc).__name__, attempt, self.max_attempts, delay,
+                    type(exc).__name__,
+                    attempt,
+                    self.max_attempts,
+                    delay,
                 )
                 await self._sleep(delay)
                 attempt += 1
@@ -145,12 +148,16 @@ class GeminiClient:
         # Timeout não repete: a chamada já consumiu o tempo que o usuário aceitaria esperar.
         return not isinstance(exc, httpx.TimeoutException)
 
-    def _log_usage(self, response: types.GenerateContentResponse, attempts: int, elapsed: float) -> None:
+    def _log_usage(
+        self, response: types.GenerateContentResponse, attempts: int, elapsed: float
+    ) -> None:
         # Só números: o conteúdo de prompts e respostas tem dados pessoais.
         usage = response.usage_metadata
         logger.info(
             "Gemini ok model=%s latency=%.1fs attempts=%s prompt_tokens=%s output_tokens=%s thought_tokens=%s",
-            self.model, elapsed, attempts,
+            self.model,
+            elapsed,
+            attempts,
             getattr(usage, "prompt_token_count", None),
             getattr(usage, "candidates_token_count", None),
             getattr(usage, "thoughts_token_count", None),

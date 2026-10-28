@@ -1,4 +1,5 @@
 """Fluxo de autenticação ponta a ponta (HTTP → serviço → Postgres real)."""
+
 from datetime import timedelta
 
 import pytest
@@ -55,7 +56,10 @@ def test_logged_out_access_token_is_rejected(http, session_tokens):
 def test_token_of_a_deleted_user_is_rejected(http, session_tokens):
     access = session_tokens["access_token"]
     deleted = http.request(
-        "DELETE", f"{API}/users/me/delete", headers=bearer(access), json={"password": CREDENTIALS["password"]}
+        "DELETE",
+        f"{API}/users/me/delete",
+        headers=bearer(access),
+        json={"password": CREDENTIALS["password"]},
     )
 
     assert deleted.status_code == 200
@@ -63,11 +67,16 @@ def test_token_of_a_deleted_user_is_rejected(http, session_tokens):
 
 
 def logout(http, tokens, **body):
-    return http.post(f"{API}/auth/logout", headers=bearer(tokens["access_token"]), json=body or None)
+    return http.post(
+        f"{API}/auth/logout", headers=bearer(tokens["access_token"]), json=body or None
+    )
 
 
 def test_logout_with_refresh_token_ends_the_whole_session(http, session_tokens):
-    assert logout(http, session_tokens, refresh_token=session_tokens["refresh_token"]).status_code == 200
+    assert (
+        logout(http, session_tokens, refresh_token=session_tokens["refresh_token"]).status_code
+        == 200
+    )
 
     renewed = http.post(f"{API}/auth/refresh", headers=bearer(session_tokens["refresh_token"]))
     assert renewed.status_code == 401
@@ -86,15 +95,25 @@ def test_revoking_the_same_refresh_token_twice_is_not_an_error(http, session_tok
 
 
 def test_logout_rejects_a_refresh_token_of_another_user(http, session_tokens):
-    http.post(f"{API}/auth/register", json={"name": "Ana Souza", "email": "ana@example.com", "password": "Abcdef12"})
-    other = http.post(f"{API}/auth/login", json={"email": "ana@example.com", "password": "Abcdef12"}).json()["tokens"]
+    http.post(
+        f"{API}/auth/register",
+        json={"name": "Ana Souza", "email": "ana@example.com", "password": "Abcdef12"},
+    )
+    other = http.post(
+        f"{API}/auth/login", json={"email": "ana@example.com", "password": "Abcdef12"}
+    ).json()["tokens"]
 
     response = logout(http, session_tokens, refresh_token=other["refresh_token"])
 
     assert response.status_code == 400
     # nada foi revogado: o access token ainda vale e a sessão da Ana segue renovável
-    assert http.get(f"{API}/users/me", headers=bearer(session_tokens["access_token"])).status_code == 200
-    assert http.post(f"{API}/auth/refresh", headers=bearer(other["refresh_token"])).status_code == 200
+    assert (
+        http.get(f"{API}/users/me", headers=bearer(session_tokens["access_token"])).status_code
+        == 200
+    )
+    assert (
+        http.post(f"{API}/auth/refresh", headers=bearer(other["refresh_token"])).status_code == 200
+    )
 
 
 def reset_token_for(http, email):
@@ -112,17 +131,22 @@ def reset_token_for(http, email):
             await engine.dispose()
 
     from app.utils.token_utils import create_reset_password_token
+
     return create_reset_password_token(email, asyncio.run(stored_hash()))
 
 
 def test_password_reset_works_once_and_changes_the_credentials(http, session_tokens):
     token = reset_token_for(http, CREDENTIALS["email"])
-    reset = lambda password: http.post(f"{API}/auth/reset-password", json={"reset_token": token, "new_password": password})
+    reset = lambda password: http.post(
+        f"{API}/auth/reset-password", json={"reset_token": token, "new_password": password}
+    )
 
     assert reset("Newpass12").status_code == 200
     assert reset("Another123").status_code == 400  # mesmo token, segunda vez
 
-    login = lambda password: http.post(f"{API}/auth/login", json={"email": CREDENTIALS["email"], "password": password})
+    login = lambda password: http.post(
+        f"{API}/auth/login", json={"email": CREDENTIALS["email"], "password": password}
+    )
     assert login("Newpass12").status_code == 200
     assert login(CREDENTIALS["password"]).status_code == 401
     assert login("Another123").status_code == 401
@@ -144,7 +168,9 @@ def outbox(monkeypatch):
     return sent
 
 
-def test_forgot_password_response_does_not_reveal_which_accounts_exist(http, session_tokens, outbox):
+def test_forgot_password_response_does_not_reveal_which_accounts_exist(
+    http, session_tokens, outbox
+):
     ask = lambda email: http.post(f"{API}/auth/forgot-password", json={"email": email})
 
     known, unknown = ask(CREDENTIALS["email"]), ask("ghost@example.com")
@@ -159,14 +185,18 @@ def test_the_emailed_link_resets_the_password(http, session_tokens, outbox):
 
     link = outbox[0].template_body["reset_url"]
     token = link.split("token=")[1]
-    reset = http.post(f"{API}/auth/reset-password", json={"reset_token": token, "new_password": "Newpass12"})
+    reset = http.post(
+        f"{API}/auth/reset-password", json={"reset_token": token, "new_password": "Newpass12"}
+    )
 
     assert reset.status_code == 200
 
 
 def test_login_error_is_the_same_for_unknown_account_and_wrong_password(http, session_tokens):
     wrong_password = http.post(f"{API}/auth/login", json={**CREDENTIALS, "password": "WrongPass1"})
-    unknown_account = http.post(f"{API}/auth/login", json={"email": "ghost@example.com", "password": "WrongPass1"})
+    unknown_account = http.post(
+        f"{API}/auth/login", json={"email": "ghost@example.com", "password": "WrongPass1"}
+    )
 
     assert wrong_password.status_code == unknown_account.status_code == 401
     assert wrong_password.json() == unknown_account.json()

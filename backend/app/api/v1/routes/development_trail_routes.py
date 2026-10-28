@@ -16,17 +16,21 @@ from app.services.development_trail_services import DevelopmentTrailService
 router = APIRouter()
 
 
-@router.post("/", response_model=DevelopmentTrailResponse, dependencies=[Depends(limit_ai_generation)])
+@router.post(
+    "/", response_model=DevelopmentTrailResponse, dependencies=[Depends(limit_ai_generation)]
+)
 async def generate_development_trail(
     user_data: DevelopmentTrailRequest,
     current_user: User = Depends(verify_token),
-    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service)
+    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service),
 ):
     """
     Recebe dados do usuário e retorna trilha de desenvolvimento personalizada.
     """
-    development_trail = await development_trail_service.generate_development_trail_with_gemini_service(
-        user_data, current_user
+    development_trail = (
+        await development_trail_service.generate_development_trail_with_gemini_service(
+            user_data, current_user
+        )
     )
     return development_trail
 
@@ -35,10 +39,8 @@ async def generate_development_trail(
 async def get_my_development_trails(
     current_user: User = Depends(verify_token),
     skip: int = Query(0, ge=0, description="Número de itens para pular"),
-    limit: int = Query(
-        100, ge=1, le=100, description="Número máximo de itens por página"
-    ),
-    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service)
+    limit: int = Query(100, ge=1, le=100, description="Número máximo de itens por página"),
+    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service),
 ):
     """
     Retorna todas as trilhas de desenvolvimento do usuário autenticado.
@@ -49,13 +51,11 @@ async def get_my_development_trails(
     return development_trails
 
 
-@router.get(
-    "/{development_trail_id}", response_model=DevelopmentTrailResponse
-)
+@router.get("/{development_trail_id}", response_model=DevelopmentTrailResponse)
 async def get_development_trail(
     development_trail_id: int,
     current_user: User = Depends(verify_token),
-    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service)
+    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service),
 ):
     """
     Retorna uma trilha de desenvolvimento específica do usuário
@@ -66,14 +66,12 @@ async def get_development_trail(
     return development_trail
 
 
-@router.patch(
-    "/{development_trail_id}", response_model=DevelopmentTrailResponse
-)
+@router.patch("/{development_trail_id}", response_model=DevelopmentTrailResponse)
 async def update_development_trail(
     development_trail_id: int,
     update_data: DevelopmentTrailUpdateRequest,
     current_user: User = Depends(verify_token),
-    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service)
+    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service),
 ):
     """
     Atualiza o status de uma trilha de desenvolvimento.
@@ -85,13 +83,11 @@ async def update_development_trail(
     return development_trail
 
 
-@router.delete(
-    "/{development_trail_id}", response_model=DevelopmentTrailDeleteResponse
-)
+@router.delete("/{development_trail_id}", response_model=DevelopmentTrailDeleteResponse)
 async def delete_development_trail(
     development_trail_id: int,
     current_user: User = Depends(verify_token),
-    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service)
+    development_trail_service: DevelopmentTrailService = Depends(get_development_trail_service),
 ):
     """
     Deleta uma trilha de desenvolvimento do usuário.

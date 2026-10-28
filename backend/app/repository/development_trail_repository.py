@@ -12,10 +12,7 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
         super().__init__(DevelopmentTrail, session)
 
     async def get_by_user_id(
-        self,
-        user_id: int,
-        skip: int = 0,
-        limit: int = 100
+        self, user_id: int, skip: int = 0, limit: int = 100
     ) -> tuple[list[DevelopmentTrail], int]:
         """
         Busca trilhas de desenvolvimento por user_id com paginação e count total
@@ -30,42 +27,30 @@ class DevelopmentTrailRepository(BaseRepository[DevelopmentTrail]):
         development_trails = result.scalars().all()
 
         count_result = await self.session.execute(
-            select(func.count(DevelopmentTrail.id))
-            .where(DevelopmentTrail.user_id == user_id)
+            select(func.count(DevelopmentTrail.id)).where(DevelopmentTrail.user_id == user_id)
         )
         total_count = count_result.scalar_one()
 
         return development_trails, total_count
 
     async def get_by_id_and_user_id(
-        self,
-        development_trail_id: int,
-        user_id: int
+        self, development_trail_id: int, user_id: int
     ) -> DevelopmentTrail | None:
         """
         Busca trilha de desenvolvimento por ID e user_id
         """
         result = await self.session.execute(
-            select(DevelopmentTrail)
-            .where(
-                DevelopmentTrail.id == development_trail_id,
-                DevelopmentTrail.user_id == user_id
+            select(DevelopmentTrail).where(
+                DevelopmentTrail.id == development_trail_id, DevelopmentTrail.user_id == user_id
             )
         )
         return result.scalar_one_or_none()
 
-    async def update_status(
-        self,
-        development_trail_id: int,
-        status: str
-    ) -> DevelopmentTrail:
+    async def update_status(self, development_trail_id: int, status: str) -> DevelopmentTrail:
         query = (
             update(DevelopmentTrail)
             .where(DevelopmentTrail.id == development_trail_id)
-            .values(
-                status=status,
-                updated_at=datetime.now(UTC)
-            )
+            .values(status=status, updated_at=datetime.now(UTC))
             .returning(DevelopmentTrail)
         )
         result = await self.session.execute(query)

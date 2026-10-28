@@ -8,6 +8,7 @@ from app.core.config import settings
 class Base(DeclarativeBase):
     pass
 
+
 # Engine assincrono (para FastAPI)
 async_engine = create_async_engine(
     settings.DATABASE_URI,
@@ -22,18 +23,11 @@ sync_engine = create_engine(
 
 # Cria SessionLocal
 AsyncSessionLocal = async_sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=async_engine,
-    class_=AsyncSession
+    autocommit=False, autoflush=False, bind=async_engine, class_=AsyncSession
 )
 
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=sync_engine,
-    class_=Session
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine, class_=Session)
+
 
 async def get_db():
     async with AsyncSessionLocal() as session:

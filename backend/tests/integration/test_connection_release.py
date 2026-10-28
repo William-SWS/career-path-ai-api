@@ -1,4 +1,5 @@
 """A espera pelo LLM (segundos) não pode segurar uma conexão do pool de banco."""
+
 import asyncio
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -56,7 +57,9 @@ def tiny_pool_client():
 
 def login(client):
     client.post(f"{API}/auth/register", json={"name": "Maria Silva", **CREDENTIALS})
-    return bearer(client.post(f"{API}/auth/login", json=CREDENTIALS).json()["tokens"]["access_token"])
+    return bearer(
+        client.post(f"{API}/auth/login", json=CREDENTIALS).json()["tokens"]["access_token"]
+    )
 
 
 def test_no_connection_is_held_while_waiting_for_the_llm(tiny_pool_client):
@@ -76,7 +79,10 @@ def test_concurrent_generations_do_not_starve_the_pool(tiny_pool_client):
     headers = login(client)
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(client.post, f"{API}/development-trail/", json=TRAIL, headers=headers) for _ in range(3)]
+        futures = [
+            pool.submit(client.post, f"{API}/development-trail/", json=TRAIL, headers=headers)
+            for _ in range(3)
+        ]
         statuses = [f.result().status_code for f in futures]
 
     assert statuses == [200, 200, 200]

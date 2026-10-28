@@ -6,17 +6,21 @@ from app.models.user import User
 from app.utils.token_utils import create_reset_password_token
 
 
-async def send_email(recipients: list, subject: str, context: dict, template_name: str, background_tasks: BackgroundTasks):
+async def send_email(
+    recipients: list,
+    subject: str,
+    context: dict,
+    template_name: str,
+    background_tasks: BackgroundTasks,
+):
     fm = FastMail(conf)
 
     message = MessageSchema(
-        subject=subject,
-        recipients=recipients,
-        template_body=context,
-        subtype=MessageType.html
+        subject=subject, recipients=recipients, template_body=context, subtype=MessageType.html
     )
 
     background_tasks.add_task(fm.send_message, message, template_name=template_name)
+
 
 async def send_password_reset_email(user: User, background_tasks: BackgroundTasks):
     token = create_reset_password_token(user.email, user.password_hash)
@@ -36,5 +40,5 @@ async def send_password_reset_email(user: User, background_tasks: BackgroundTask
         subject=subject,
         template_name="password_reset.html",
         context=data,
-        background_tasks=background_tasks
+        background_tasks=background_tasks,
     )

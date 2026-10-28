@@ -36,7 +36,7 @@ def _to_response(development_trail) -> DevelopmentTrailResponse:
         development_trail=development_trail.development_trail,
         status=development_trail.status,
         created_at=development_trail.created_at,
-        updated_at=development_trail.updated_at
+        updated_at=development_trail.updated_at,
     )
 
 
@@ -64,7 +64,7 @@ class DevelopmentTrailService:
             development_trail=development_trail_result,
             status=DevelopmentTrailStatus.IN_PROGRESS.value,
             created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC)
+            updated_at=datetime.now(UTC),
         )
 
         await self.db.commit()
@@ -79,14 +79,11 @@ class DevelopmentTrailService:
         Serviço que retorna todas as trilhas de desenvolvimento do usuário
         """
         development_trails, total_count = await self.development_trail_repository.get_by_user_id(
-            user_id=current_user.id,
-            skip=skip,
-            limit=limit
+            user_id=current_user.id, skip=skip, limit=limit
         )
 
         return DevelopmentTrailListResponse(
-            development_trails=development_trails,
-            total_count=total_count
+            development_trails=development_trails, total_count=total_count
         )
 
     async def get_development_trail_by_id_service(
@@ -96,8 +93,7 @@ class DevelopmentTrailService:
         Serviço que retorna uma trilha de desenvolvimento específica do usuário
         """
         development_trail = await self.development_trail_repository.get_by_id_and_user_id(
-            development_trail_id=development_trail_id,
-            user_id=current_user.id
+            development_trail_id=development_trail_id, user_id=current_user.id
         )
 
         if not development_trail:
@@ -109,22 +105,20 @@ class DevelopmentTrailService:
         self,
         development_trail_id: int,
         update_data: DevelopmentTrailUpdateRequest,
-        current_user: User
+        current_user: User,
     ) -> DevelopmentTrailResponse:
         """
         Serviço para atualizar o status de uma trilha de desenvolvimento
         """
         development_trail = await self.development_trail_repository.get_by_id_and_user_id(
-            development_trail_id=development_trail_id,
-            user_id=current_user.id
+            development_trail_id=development_trail_id, user_id=current_user.id
         )
 
         if not development_trail:
             raise _trail_not_found()
 
         updated_trail = await self.development_trail_repository.update_status(
-            development_trail_id=development_trail_id,
-            status=update_data.status.value
+            development_trail_id=development_trail_id, status=update_data.status.value
         )
 
         await self.db.commit()
@@ -139,8 +133,7 @@ class DevelopmentTrailService:
         Serviço para deletar uma trilha de desenvolvimento do usuário
         """
         development_trail = await self.development_trail_repository.get_by_id_and_user_id(
-            development_trail_id=development_trail_id,
-            user_id=current_user.id
+            development_trail_id=development_trail_id, user_id=current_user.id
         )
 
         if not development_trail:

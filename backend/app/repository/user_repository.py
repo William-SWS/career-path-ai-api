@@ -15,9 +15,7 @@ class UserRepository(BaseRepository[User]):
         """
         Busca o usuário por email
         """
-        result = await self.session.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self.session.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def email_exists(self, email: str) -> bool:

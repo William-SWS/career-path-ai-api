@@ -11,7 +11,9 @@ class InterviewGuide(Base):
     __tablename__ = "interview_guide"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
 
     interview_guide = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)

@@ -1,4 +1,5 @@
 """Os critérios da avaliação manual são código: precisam de teste, ou a avaliação mede a coisa errada."""
+
 import copy
 
 import pytest
@@ -34,6 +35,7 @@ CASE = next(c for c in CASES if c.name == "junior_backend")
 
 # ---- coerência dos próprios casos ----
 
+
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.name)
 def test_expected_phase_count_matches_what_the_prompt_asks_for(case):
     months = calculate_timeframe_months(case.trail.goal_timeframe)
@@ -49,6 +51,7 @@ def test_resume_skills_expectations_are_consistent_with_the_resume_text(case):
 
 
 # ---- critérios ----
+
 
 def test_language_heuristic():
     assert is_portuguese(PT)

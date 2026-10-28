@@ -1,4 +1,5 @@
 """Rate limit nas rotas reais (HTTP → dependência → serviço → Postgres)."""
+
 import json
 
 import pytest
@@ -29,27 +30,41 @@ def test_login_is_blocked_after_too_many_attempts_for_the_same_account(http):
 
 def test_blocking_one_account_does_not_block_another_from_the_same_ip(http):
     for _ in range(5):
-        http.post(f"{API}/auth/login", json={"email": "victim@example.com", "password": "Wrong1234"})
+        http.post(
+            f"{API}/auth/login", json={"email": "victim@example.com", "password": "Wrong1234"}
+        )
 
-    other = http.post(f"{API}/auth/login", json={"email": "other@example.com", "password": "Wrong1234"})
+    other = http.post(
+        f"{API}/auth/login", json={"email": "other@example.com", "password": "Wrong1234"}
+    )
 
     assert other.status_code == 401  # credencial errada, mas não limitada
 
 
 def test_registration_is_limited_per_ip(http):
     statuses = [
-        http.post(f"{API}/auth/register", json={"name": "Maria Silva", "email": f"u{i}@example.com", "password": "Abcdef12"}).status_code
+        http.post(
+            f"{API}/auth/register",
+            json={"name": "Maria Silva", "email": f"u{i}@example.com", "password": "Abcdef12"},
+        ).status_code
         for i in range(4)
     ]
 
     assert statuses == [201, 201, 201, 429]
 
 
-def test_ai_generation_is_limited_per_user_and_the_limit_does_not_hide_auth_errors(http, session_tokens):
-    app.dependency_overrides[get_llm_client] = lambda: FakeLLM(json.dumps(sample_output(DevelopmentTrailOutput)))
+def test_ai_generation_is_limited_per_user_and_the_limit_does_not_hide_auth_errors(
+    http, session_tokens
+):
+    app.dependency_overrides[get_llm_client] = lambda: FakeLLM(
+        json.dumps(sample_output(DevelopmentTrailOutput))
+    )
     headers = bearer(session_tokens["access_token"])
 
-    statuses = [http.post(f"{API}/development-trail/", json=TRAIL, headers=headers).status_code for _ in range(4)]
+    statuses = [
+        http.post(f"{API}/development-trail/", json=TRAIL, headers=headers).status_code
+        for _ in range(4)
+    ]
     unauthenticated = http.post(f"{API}/development-trail/", json=TRAIL)
 
     assert statuses == [200, 200, 200, 429]

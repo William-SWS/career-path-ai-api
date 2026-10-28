@@ -40,7 +40,7 @@ class DevelopmentTrail(Base):
         development_trail: dict,
         created_at: datetime = None,
         status: DevelopmentTrailStatus = DevelopmentTrailStatus.IN_PROGRESS.value,
-        updated_at: datetime = None
+        updated_at: datetime = None,
     ):
         self.user_id = user_id
         self.development_trail = development_trail

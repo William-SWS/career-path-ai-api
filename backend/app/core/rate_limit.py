@@ -3,6 +3,7 @@
 Estourar o limite vira 429 no envelope de erro padrão, com `Retry-After`. As políticas
 por rota (chaves e valores) ficam em api/v1/dependencies/rate_limit.py.
 """
+
 import math
 import time
 from functools import lru_cache
@@ -44,7 +45,9 @@ class RateLimiter:
         except StorageError:
             self._unavailable_until = self._clock() + _STORAGE_COOLDOWN_SECONDS
             logger.exception(
-                "Rate limiter indisponível (%s); sem consultar por %ss", namespace, _STORAGE_COOLDOWN_SECONDS
+                "Rate limiter indisponível (%s); sem consultar por %ss",
+                namespace,
+                _STORAGE_COOLDOWN_SECONDS,
             )
             return self._storage_down(namespace, fail_closed)
 
@@ -70,9 +73,13 @@ def build_rate_limiter(redis_url: str) -> RateLimiter:
         # `limits` usa o prefixo "async+" para o cliente assíncrono. Timeouts curtos:
         # um Redis lento não pode atrasar cada requisição.
         uri = "async+" + redis_url.removeprefix("async+")
-        storage = storage_from_string(uri, wrap_exceptions=True, connect_timeout=1, stream_timeout=1)
+        storage = storage_from_string(
+            uri, wrap_exceptions=True, connect_timeout=1, stream_timeout=1
+        )
     else:
-        logger.warning("REDIS_URL não definido: rate limit em memória, válido só para desenvolvimento")
+        logger.warning(
+            "REDIS_URL não definido: rate limit em memória, válido só para desenvolvimento"
+        )
         storage = storage_from_string("async+memory://")
     return RateLimiter(storage)
 
