@@ -35,13 +35,29 @@ class FakeModels:
 def response(text='{"ok": true}', finish_reason=types.FinishReason.STOP, candidates=True):
     return SimpleNamespace(
         text=text,
+        usage_metadata=SimpleNamespace(
+            prompt_token_count=10, candidates_token_count=5, thoughts_token_count=0
+        ),
         candidates=[SimpleNamespace(finish_reason=finish_reason)] if candidates else [],
     )
 
 
-def make_client(models, timeout=20):
+class Sleeper:
+    """Substitui asyncio.sleep: o teste não espera e vê quais pausas o backoff pediu."""
+
+    def __init__(self):
+        self.delays = []
+
+    async def __call__(self, delay):
+        self.delays.append(delay)
+
+
+def make_client(models, timeout=20, sleeper=None, **kwargs):
     sdk = SimpleNamespace(aio=SimpleNamespace(models=models))
-    return GeminiClient(api_key="k", model="test-model", timeout_seconds=timeout, client=sdk)
+    return GeminiClient(
+        api_key="k", model="test-model", timeout_seconds=timeout, client=sdk,
+        sleep=sleeper or Sleeper(), **kwargs,
+    )
 
 
 def generate(models, timeout=20):
@@ -159,12 +175,106 @@ def test_plain_request_has_no_schema():
 @pytest.mark.parametrize("budget", [0, 1024, -1])
 def test_thinking_budget_reaches_the_sdk(budget):
     models = FakeModels(response=response())
-    sdk = SimpleNamespace(aio=SimpleNamespace(models=models))
-    client = GeminiClient(api_key="k", model="m", timeout_seconds=20, thinking_budget=budget, client=sdk)
-
-    asyncio.run(client.generate("p", PARAMS))
+    asyncio.run(make_client(models, thinking_budget=budget).generate("p", PARAMS))
 
     assert models.calls[0]["config"].thinking_config.thinking_budget == budget
+
+
+# ---------- retry ----------
+
+def api_error(code):
+    return errors.APIError(code, {"error": {"message": "m", "status": "S"}})
+
+
+class ScriptedModels(FakeModels):
+    """Falha com cada erro da lista, na ordem, e depois responde."""
+
+    def __init__(self, failures, response_):
+        super().__init__(response=response_)
+        self.failures = list(failures)
+
+    async def generate_content(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.failures:
+            raise self.failures.pop(0)
+        return self.response
+
+
+@pytest.mark.parametrize("failure", [api_error(503), api_error(500), api_error(504), httpx.ConnectError("x")],
+                         ids=["503", "500", "504", "connect"])
+def test_transient_failure_is_retried_and_then_succeeds(failure):
+    models = ScriptedModels([failure], response("ok"))
+    sleeper = Sleeper()
+
+    assert asyncio.run(make_client(models, sleeper=sleeper).generate("p", PARAMS)) == "ok"
+
+    assert len(models.calls) == 2
+    assert len(sleeper.delays) == 1
+
+
+def test_backoff_grows_exponentially_with_jitter():
+    models = ScriptedModels([api_error(503), api_error(503)], response("ok"))
+    sleeper = Sleeper()
+
+    asyncio.run(make_client(models, sleeper=sleeper, max_attempts=3, backoff_base_seconds=2.0).generate("p", PARAMS))
+
+    first, second = sleeper.delays
+    assert 1.0 <= first <= 2.0      # 2s * [0.5, 1]
+    assert 2.0 <= second <= 4.0     # 4s * [0.5, 1]
+
+
+def test_gives_up_after_max_attempts_and_reports_provider_error():
+    models = ScriptedModels([api_error(503)] * 5, response("never"))
+
+    with pytest.raises(ExternalServiceException) as exc_info:
+        asyncio.run(make_client(models, max_attempts=3).generate("p", PARAMS))
+
+    assert exc_info.value.code == "ai_provider_error"
+    assert len(models.calls) == 3
+
+
+def test_max_attempts_one_disables_retry():
+    models = ScriptedModels([api_error(503)], response("never"))
+
+    with pytest.raises(ExternalServiceException):
+        asyncio.run(make_client(models, max_attempts=1).generate("p", PARAMS))
+
+    assert len(models.calls) == 1
+
+
+@pytest.mark.parametrize("failure", [api_error(429), api_error(400), api_error(403), httpx.ReadTimeout("x")],
+                         ids=["quota", "400", "403", "timeout"])
+def test_non_transient_failures_are_not_retried(failure):
+    models = ScriptedModels([failure], response("never"))
+
+    with pytest.raises((ExternalServiceException, RateLimitException)):
+        asyncio.run(make_client(models).generate("p", PARAMS))
+
+    assert len(models.calls) == 1
+
+
+def test_retries_never_extend_past_the_overall_deadline(monkeypatch):
+    monkeypatch.setattr("app.llm.client._HARD_TIMEOUT_MARGIN_SECONDS", -20)  # teto de 0s
+    models = ScriptedModels([api_error(503)], response("never"))
+
+    async def slow_sleep(delay):
+        await asyncio.sleep(1)
+
+    with pytest.raises(ExternalServiceException) as exc_info:
+        asyncio.run(make_client(models, timeout=20, sleeper=slow_sleep).generate("p", PARAMS))
+
+    assert exc_info.value.code == "ai_timeout"
+
+
+def test_usage_is_logged_without_prompt_or_response_content(caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="app"):
+        generate(FakeModels(response=response("SECRET-ANSWER")))
+
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "prompt_tokens=10" in logged and "attempts=1" in logged
+    assert "SECRET-ANSWER" not in logged and "prompt'" not in logged
 
 
 # ---------- parse_structured_response ----------

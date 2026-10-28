@@ -1,7 +1,9 @@
 import asyncio
+import random
+import time
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Protocol
+from typing import Awaitable, Callable, Protocol
 
 import httpx
 from google import genai
@@ -14,6 +16,10 @@ from app.core.logging_config import logger
 # Margem entre o timeout HTTP do SDK e o limite total: o do SDK vale por fase da
 # conexão, então o limite externo garante um teto para a chamada inteira.
 _HARD_TIMEOUT_MARGIN_SECONDS = 5
+
+# Erros do provedor que costumam passar sozinhos (sobrecarga, falha momentânea).
+# 429 fica de fora: é cota esgotada, insistir só gasta a cota e atrasa o aviso ao usuário.
+_RETRYABLE_STATUS_CODES = frozenset({500, 502, 503, 504})
 
 
 @dataclass(frozen=True)
@@ -45,11 +51,17 @@ class GeminiClient:
         model: str,
         timeout_seconds: int,
         thinking_budget: int = 0,
+        max_attempts: int = 3,
+        backoff_base_seconds: float = 1.0,
         client: genai.Client | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ):
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.thinking_budget = thinking_budget
+        self.max_attempts = max_attempts
+        self.backoff_base_seconds = backoff_base_seconds
+        self._sleep = sleep
         self._client = client
         if self._client is None and api_key:
             self._client = genai.Client(
@@ -82,11 +94,11 @@ class GeminiClient:
             config.response_mime_type = "application/json"
             config.response_schema = response_schema
 
+        started = time.perf_counter()
         try:
+            # O teto vale para todas as tentativas juntas: retry nunca alonga a espera do usuário.
             async with asyncio.timeout(self.timeout_seconds + _HARD_TIMEOUT_MARGIN_SECONDS):
-                response = await self._client.aio.models.generate_content(
-                    model=self.model, contents=prompt, config=config
-                )
+                response, attempts = await self._generate_with_retry(prompt, config)
         except errors.APIError as exc:
             raise self._translate_api_error(exc)
         except (asyncio.TimeoutError, httpx.TimeoutException):
@@ -100,7 +112,46 @@ class GeminiClient:
                 "Serviço de IA indisponível no momento", code="ai_provider_error"
             )
 
+        self._log_usage(response, attempts, time.perf_counter() - started)
         return self._extract_text(response)
+
+    async def _generate_with_retry(self, prompt: str, config: types.GenerateContentConfig):
+        attempt = 1
+        while True:
+            try:
+                response = await self._client.aio.models.generate_content(
+                    model=self.model, contents=prompt, config=config
+                )
+                return response, attempt
+            except (errors.APIError, httpx.TransportError) as exc:
+                if attempt >= self.max_attempts or not self._is_retryable(exc):
+                    raise
+                # Backoff exponencial com jitter, para não sincronizar retentativas.
+                delay = self.backoff_base_seconds * 2 ** (attempt - 1) * random.uniform(0.5, 1.0)
+                logger.warning(
+                    "Gemini falhou (%s), tentativa %s/%s; nova tentativa em %.1fs",
+                    type(exc).__name__, attempt, self.max_attempts, delay,
+                )
+                await self._sleep(delay)
+                attempt += 1
+
+    @staticmethod
+    def _is_retryable(exc: Exception) -> bool:
+        if isinstance(exc, errors.APIError):
+            return exc.code in _RETRYABLE_STATUS_CODES
+        # Timeout não repete: a chamada já consumiu o tempo que o usuário aceitaria esperar.
+        return not isinstance(exc, httpx.TimeoutException)
+
+    def _log_usage(self, response: types.GenerateContentResponse, attempts: int, elapsed: float) -> None:
+        # Só números: o conteúdo de prompts e respostas tem dados pessoais.
+        usage = response.usage_metadata
+        logger.info(
+            "Gemini ok model=%s latency=%.1fs attempts=%s prompt_tokens=%s output_tokens=%s thought_tokens=%s",
+            self.model, elapsed, attempts,
+            getattr(usage, "prompt_token_count", None),
+            getattr(usage, "candidates_token_count", None),
+            getattr(usage, "thoughts_token_count", None),
+        )
 
     @staticmethod
     def _translate_api_error(exc: errors.APIError) -> Exception:
@@ -149,4 +200,5 @@ def get_llm_client() -> LLMClient:
         model=settings.GEMINI_MODEL,
         timeout_seconds=settings.GEMINI_TIMEOUT_SECONDS,
         thinking_budget=settings.GEMINI_THINKING_BUDGET,
+        max_attempts=settings.GEMINI_MAX_ATTEMPTS,
     )

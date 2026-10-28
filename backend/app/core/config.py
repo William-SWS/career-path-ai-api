@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     GEMINI_TIMEOUT_SECONDS: int = Field(default=90, ge=20, le=300)
     # 0 desliga o raciocínio, -1 deixa o modelo decidir. Nem todo modelo aceita 0 (ex.: 2.5-pro).
     GEMINI_THINKING_BUDGET: int = Field(default=0, ge=-1, le=24576)
+    # Tentativas por geração (1 = sem retry) para erros transitórios do provedor.
+    GEMINI_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=5)
 
 
 settings = Settings()
