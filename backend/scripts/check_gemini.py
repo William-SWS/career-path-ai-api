@@ -14,6 +14,7 @@ from google import genai
 
 from app.core.exceptions import AppException
 from app.llm.client import GeminiClient, GenerationParams
+from app.llm.prompts import Prompt
 
 
 def main() -> int:
@@ -39,7 +40,7 @@ def main() -> int:
     gemini = GeminiClient(api_key=api_key, model=model_name, timeout_seconds=30)
     params = GenerationParams(temperature=0, top_p=1, top_k=1, max_output_tokens=1024)  # modelos com thinking gastam parte do limite raciocinando
     try:
-        text = asyncio.run(gemini.generate("Responda apenas: ok", params))
+        text = asyncio.run(gemini.generate(Prompt(system="", user="Responda apenas: ok"), params))
     except AppException as exc:
         print(f"Falhou: {exc.code} - {exc.message}")
         return 1

@@ -6,6 +6,7 @@ from fastapi import UploadFile
 from PyPDF2 import PdfWriter
 
 from app.core.exceptions import ValidationException
+from app.utils import pdf_utils
 from app.utils.pdf_utils import check_pdf
 
 
@@ -73,3 +74,26 @@ def test_unusable_pdf_is_validation_error(upload, code):
 
 def test_extracts_text_from_valid_pdf():
     assert "Python developer" in _check(_upload(_pdf_with_text("Python developer")))
+
+
+def test_pdf_over_the_size_limit_is_rejected_before_parsing(monkeypatch):
+    monkeypatch.setattr(pdf_utils, "MAX_PDF_BYTES", 100)
+
+    with pytest.raises(ValidationException) as exc_info:
+        asyncio.run(check_pdf(_upload(b"%PDF" + b"0" * 200)))
+
+    assert exc_info.value.code == "file_too_large"
+
+
+def test_pdf_with_too_many_pages_is_rejected(monkeypatch):
+    monkeypatch.setattr(pdf_utils, "MAX_PDF_PAGES", 1)
+    writer = PdfWriter()
+    for _ in range(2):
+        writer.add_blank_page(width=200, height=200)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+
+    with pytest.raises(ValidationException) as exc_info:
+        asyncio.run(check_pdf(_upload(buffer.getvalue())))
+
+    assert exc_info.value.code == "too_many_pages"

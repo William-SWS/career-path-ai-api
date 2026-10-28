@@ -8,11 +8,13 @@ from google.genai import errors, types
 
 from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.llm.client import GeminiClient, GenerationParams
+from app.llm.prompts import Prompt
 from pydantic import BaseModel
 
 from app.llm.responses import parse_structured_response
 
 SECRET = "projects/123/locations/us/apiKey=AIza-secret"
+PROMPT = Prompt(system="SYSTEM-RULES", user="prompt")
 PARAMS = GenerationParams(temperature=0.2, top_p=0.7, top_k=40, max_output_tokens=123)
 
 
@@ -61,7 +63,7 @@ def make_client(models, timeout=20, sleeper=None, **kwargs):
 
 
 def generate(models, timeout=20):
-    return asyncio.run(make_client(models, timeout).generate("prompt", PARAMS))
+    return asyncio.run(make_client(models, timeout).generate(PROMPT, PARAMS))
 
 
 def test_returns_text_and_sends_model_prompt_and_config():
@@ -72,6 +74,7 @@ def test_returns_text_and_sends_model_prompt_and_config():
     call = models.calls[0]
     assert call["model"] == "test-model"
     assert call["contents"] == "prompt"
+    assert call["config"].system_instruction == "SYSTEM-RULES"
     assert call["config"].temperature == 0.2
     assert call["config"].top_p == 0.7
     assert call["config"].top_k == 40
@@ -143,7 +146,7 @@ def test_missing_api_key_is_unavailable():
     client = GeminiClient(api_key="", model="m", timeout_seconds=20)
 
     with pytest.raises(ExternalServiceException) as exc_info:
-        asyncio.run(client.generate("p", PARAMS))
+        asyncio.run(client.generate(PROMPT, PARAMS))
 
     assert exc_info.value.code == "ai_unavailable"
 
@@ -158,11 +161,18 @@ def test_structured_request_sends_schema_and_json_mime_type():
         a: int
 
     models = FakeModels(response=response('{"a": 1}'))
-    asyncio.run(make_client(models).generate("p", PARAMS, response_schema=Out))
+    asyncio.run(make_client(models).generate(PROMPT, PARAMS, response_schema=Out))
 
     config = models.calls[0]["config"]
     assert config.response_schema is Out
     assert config.response_mime_type == "application/json"
+
+
+def test_empty_system_instruction_is_not_sent():
+    models = FakeModels(response=response())
+    asyncio.run(make_client(models).generate(Prompt(system="", user="u"), PARAMS))
+
+    assert models.calls[0]["config"].system_instruction is None
 
 
 def test_plain_request_has_no_schema():
@@ -175,7 +185,7 @@ def test_plain_request_has_no_schema():
 @pytest.mark.parametrize("budget", [0, 1024, -1])
 def test_thinking_budget_reaches_the_sdk(budget):
     models = FakeModels(response=response())
-    asyncio.run(make_client(models, thinking_budget=budget).generate("p", PARAMS))
+    asyncio.run(make_client(models, thinking_budget=budget).generate(PROMPT, PARAMS))
 
     assert models.calls[0]["config"].thinking_config.thinking_budget == budget
 
@@ -206,7 +216,7 @@ def test_transient_failure_is_retried_and_then_succeeds(failure):
     models = ScriptedModels([failure], response("ok"))
     sleeper = Sleeper()
 
-    assert asyncio.run(make_client(models, sleeper=sleeper).generate("p", PARAMS)) == "ok"
+    assert asyncio.run(make_client(models, sleeper=sleeper).generate(PROMPT, PARAMS)) == "ok"
 
     assert len(models.calls) == 2
     assert len(sleeper.delays) == 1
@@ -216,7 +226,7 @@ def test_backoff_grows_exponentially_with_jitter():
     models = ScriptedModels([api_error(503), api_error(503)], response("ok"))
     sleeper = Sleeper()
 
-    asyncio.run(make_client(models, sleeper=sleeper, max_attempts=3, backoff_base_seconds=2.0).generate("p", PARAMS))
+    asyncio.run(make_client(models, sleeper=sleeper, max_attempts=3, backoff_base_seconds=2.0).generate(PROMPT, PARAMS))
 
     first, second = sleeper.delays
     assert 1.0 <= first <= 2.0      # 2s * [0.5, 1]
@@ -227,7 +237,7 @@ def test_gives_up_after_max_attempts_and_reports_provider_error():
     models = ScriptedModels([api_error(503)] * 5, response("never"))
 
     with pytest.raises(ExternalServiceException) as exc_info:
-        asyncio.run(make_client(models, max_attempts=3).generate("p", PARAMS))
+        asyncio.run(make_client(models, max_attempts=3).generate(PROMPT, PARAMS))
 
     assert exc_info.value.code == "ai_provider_error"
     assert len(models.calls) == 3
@@ -237,7 +247,7 @@ def test_max_attempts_one_disables_retry():
     models = ScriptedModels([api_error(503)], response("never"))
 
     with pytest.raises(ExternalServiceException):
-        asyncio.run(make_client(models, max_attempts=1).generate("p", PARAMS))
+        asyncio.run(make_client(models, max_attempts=1).generate(PROMPT, PARAMS))
 
     assert len(models.calls) == 1
 
@@ -248,7 +258,7 @@ def test_non_transient_failures_are_not_retried(failure):
     models = ScriptedModels([failure], response("never"))
 
     with pytest.raises((ExternalServiceException, RateLimitException)):
-        asyncio.run(make_client(models).generate("p", PARAMS))
+        asyncio.run(make_client(models).generate(PROMPT, PARAMS))
 
     assert len(models.calls) == 1
 
@@ -261,7 +271,7 @@ def test_retries_never_extend_past_the_overall_deadline(monkeypatch):
         await asyncio.sleep(1)
 
     with pytest.raises(ExternalServiceException) as exc_info:
-        asyncio.run(make_client(models, timeout=20, sleeper=slow_sleep).generate("p", PARAMS))
+        asyncio.run(make_client(models, timeout=20, sleeper=slow_sleep).generate(PROMPT, PARAMS))
 
     assert exc_info.value.code == "ai_timeout"
 

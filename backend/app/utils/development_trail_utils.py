@@ -1,5 +1,6 @@
 from app.schemas.development_trail_schema import DevelopmentTrailRequest
 from app.llm.client import GenerationParams
+from app.llm.prompts import Prompt, load_system_prompt, untrusted_block
 import re
 
 
@@ -8,107 +9,34 @@ DEVELOPMENT_TRAIL_PARAMS = GenerationParams(
 )
 
 
-def create_adaptive_development_trail_prompt(user_data: DevelopmentTrailRequest) -> str:
-    """Cria um prompt adaptável baseado no tempo disponível do usuário"""
-
-    # Calcula meses totais baseado no timeframe
+def create_adaptive_development_trail_prompt(user_data: DevelopmentTrailRequest) -> Prompt:
+    """Monta o prompt da trilha: instruções fixas no system, plano calculado e dados do usuário na mensagem"""
     total_months = calculate_timeframe_months(user_data.goal_timeframe)
 
-    # Define estrutura de fases baseada no tempo disponível
-    phases_structure = get_phases_structure(total_months)
-
-    return f"""
-Você é um especialista em desenvolvimento de carreira em tecnologia. 
-Analise os dados do usuário e retorne APENAS um objeto JSON válido, sem nenhum texto adicional.
-
-**DADOS DO USUÁRIO:**
-- Nome: {user_data.name}
+    # Os campos abaixo são digitados pelo usuário e vão como dado não confiável.
+    user_fields = f"""- Nome: {user_data.name}
 - Idade: {user_data.age or "Não informada"}
 - Formação: {user_data.education or "Não informada"}
 - Área Atual: {user_data.current_area or "Não informada"}
-- Experiência: {user_data.experience_in_years or 0} anos
+- Experiência: {f"{user_data.experience_in_years} anos" if user_data.experience_in_years is not None else "Não informada"}
 - Habilidades: {", ".join(user_data.skills)}
 - Tecnologias de Interesse: {", ".join(user_data.interested_technologies) if user_data.interested_technologies else "Não informado"}
 - Nível Atual: {user_data.current_level or "Não informado"}
 - Objetivo Profissional: {user_data.professional_goal}
 - Disponibilidade Semanal: {user_data.available_time_week or "Não informada"}
 - Prazo para Objetivo: {user_data.goal_timeframe or "Não informado"}
-- Informações Adicionais: {user_data.additional_information or "Nenhuma"}
+- Informações Adicionais: {user_data.additional_information or "Nenhuma"}"""
 
-**ESTRUTURA ADAPTATIVA ({total_months} meses):**
-{phases_structure}
+    # Plano derivado só de um número calculado em código, não do texto do usuário.
+    plan = f"DURAÇÃO TOTAL: {total_months} MESES\n{get_phases_structure(total_months)}"
 
-**FORMATO EXATO DO JSON:**
-
-{{
-    "user_profile_summary": {{
-        "current_profile": "Resumo do perfil atual em 2-3 frases",
-        "strengths": ["ponto forte 1", "ponto forte 2", "ponto forte 3"],
-        "improvement_areas": ["área de melhoria 1", "área de melhoria 2"]
-    }},
-    "development_phases": [
-        {{
-            "phase": "NOME_DA_FASE",
-            "duration": "X-Y semanas/meses",
-            "focus": "Foco principal desta fase",
-            "topics": ["tópico 1", "tópico 2", "tópico 3"],
-            "resources": ["recurso 1", "recurso 2"],
-            "projects": ["projeto prático 1", "projeto prático 2"],
-            "learning_outcomes": ["resultado 1", "resultado 2"]
-        }}
-        // REPETIR PARA CADA FASE DEFINIDA NA ESTRUTURA
-    ],
-    "recommended_resources": {{
-        "courses": ["curso 1", "curso 2", "curso 3"],
-        "tools": ["ferramenta 1", "ferramenta 2"],
-        "communities": ["comunidade 1", "comunidade 2"],
-        "books": ["livro 1", "livro 2"]
-    }},
-    "milestones": [
-        {{
-            "timeline": "Mês X/Final da Fase Y",
-            "goals": ["meta específica 1", "meta específica 2"],
-            "success_indicators": ["indicador 1", "indicador 2"]
-        }}
-        // ADAPTAR OS MILESTONES À DURAÇÃO TOTAL
-    ],
-    "career_tips": [
-        "dica prática 1",
-        "dica prática 2", 
-        "dica prática 3",
-        "dica prática 4"
-    ],
-    "study_plan_adaptation": {{
-        "for_busy_schedule": "{user_data.available_time_week}",
-        "weekly_recommendation": "Recomendação de estudo semanal adaptada",
-        "acceleration_tips": ["Dica para acelerar 1", "Dica para acelerar 2"]
-    }}
-}}
-
-**INSTRUÇÕES ADAPTATIVAS:**
-
-DURAÇÃO TOTAL: {total_months} MESES
-- Se {total_months} <= 3 meses: Foque em objetivos imediatos e habilidades essenciais
-- Se 4 <= {total_months} <= 6 meses: Inclua fundamentos + especialização básica  
-- Se {total_months} >= 7 meses: Crie um plano completo com múltiplas fases de aprofundamento
-
-DISPONIBILIDADE: {user_data.available_time_week or "Não especificada"}
-- Se < 10h/semana: Priorize micro-learning e projetos pequenos
-- Se 10-20h/semana: Mantenha ritmo moderado com projetos medianos
-- Se > 20h/semana: Inclua projetos complexos e aprendizagem aprofundada
-
-NÍVEL: {user_data.current_level or "Não especificado"}
-- Iniciante: Foque em fundamentos e projetos guiados
-- Intermediário: Balance fundamentos com especialização
-- Avançado: Foque em tópicos avançados e projetos complexos
-
-**REGRAS ESTRITAS:**
-1. BASEIE-SE APENAS NAS INFORMAÇÕES FORNECIDAS
-2. SEJA REALISTA com o tempo disponível
-3. PRIORIZE as tecnologias de interesse: {user_data.interested_technologies or "Todas"}
-4. ADAPTE a complexidade ao nível do usuário
-5. INCLUA projetos PRÁTICOS em cada fase
-"""
+    return Prompt(
+        system=load_system_prompt("development_trail"),
+        user=(
+            f"<estrutura_do_plano>\n{plan}\n</estrutura_do_plano>\n\n"
+            + untrusted_block("dados_usuario", user_fields)
+        ),
+    )
 
 
 def calculate_timeframe_months(timeframe: str) -> int:

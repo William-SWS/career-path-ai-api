@@ -138,7 +138,7 @@ def test_trail_is_saved_for_the_requesting_user_and_the_prompt_reaches_the_model
     assert response.development_trail == sample_output(DevelopmentTrailOutput)
     assert llm.calls[0][2] is DevelopmentTrailOutput  # o schema vai ao provedor
     assert response.status == "In Progress"
-    assert "Back-End" in llm.calls[0][0]  # o objetivo do usuário foi para o prompt
+    assert "Back-End" in llm.calls[0][0].user  # o objetivo do usuário foi para a mensagem
     assert commits(service) == 1
 
 
@@ -172,7 +172,7 @@ def test_interview_guide_is_saved_and_receives_resume_and_job(monkeypatch):
 
     assert response.interview_guide == sample_output(InterviewGuideOutput)
     assert len(repo.created) == 1
-    assert "RESUME-TEXT" in llm.calls[0][0] and "JOB-TEXT" in llm.calls[0][0]
+    assert "RESUME-TEXT" in llm.calls[0][0].user and "JOB-TEXT" in llm.calls[0][0].user
 
 
 def test_resume_analysis_with_unusable_ai_result_is_not_saved(monkeypatch):
@@ -193,7 +193,7 @@ def test_resume_analysis_is_saved_and_receives_the_resume_text(monkeypatch):
     response = run(service.analyze_resume_service(pdf_upload(), USER))
 
     assert response.analysis_result == sample_output(ResumeAnalysisOutput)
-    assert "RESUME-TEXT" in llm.calls[0][0]
+    assert "RESUME-TEXT" in llm.calls[0][0].user
 
 
 # ---------- recursos de outro usuário ou inexistentes: sempre 404

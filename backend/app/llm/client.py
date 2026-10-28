@@ -10,6 +10,7 @@ from google import genai
 from google.genai import errors, types
 from pydantic import BaseModel
 
+from app.llm.prompts import Prompt
 from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
 
@@ -38,7 +39,7 @@ class LLMClient(Protocol):
 
     async def generate(
         self,
-        prompt: str,
+        prompt: Prompt,
         params: GenerationParams,
         response_schema: type[BaseModel] | None = None,
     ) -> str: ...
@@ -72,7 +73,7 @@ class GeminiClient:
 
     async def generate(
         self,
-        prompt: str,
+        prompt: Prompt,
         params: GenerationParams,
         response_schema: type[BaseModel] | None = None,
     ) -> str:
@@ -87,6 +88,7 @@ class GeminiClient:
             top_p=params.top_p,
             top_k=params.top_k,
             max_output_tokens=params.max_output_tokens,
+            system_instruction=prompt.system or None,
             # Os tokens de raciocínio contam no max_output_tokens e somam latência.
             thinking_config=types.ThinkingConfig(thinking_budget=self.thinking_budget),
         )
@@ -98,7 +100,7 @@ class GeminiClient:
         try:
             # O teto vale para todas as tentativas juntas: retry nunca alonga a espera do usuário.
             async with asyncio.timeout(self.timeout_seconds + _HARD_TIMEOUT_MARGIN_SECONDS):
-                response, attempts = await self._generate_with_retry(prompt, config)
+                response, attempts = await self._generate_with_retry(prompt.user, config)
         except errors.APIError as exc:
             raise self._translate_api_error(exc)
         except (asyncio.TimeoutError, httpx.TimeoutException):

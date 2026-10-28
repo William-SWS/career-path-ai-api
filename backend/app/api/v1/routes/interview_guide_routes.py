@@ -11,7 +11,7 @@ router = APIRouter()
 @router.post("/", response_model=InterviewGuideResponse)
 async def generate_interview_guide(
     file: UploadFile = File(...),
-    job_description: str = Form(...),
+    job_description: str = Form(..., min_length=1, max_length=5000),
     current_user: User = Depends(verify_token),
     interview_guide_service: InterviewGuideService = Depends(get_interview_guide_service)
 ):

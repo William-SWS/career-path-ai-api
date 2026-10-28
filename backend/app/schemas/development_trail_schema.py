@@ -1,22 +1,29 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, StringConstraints, field_validator
+from typing import Annotated, List, Optional, Dict, Any
 from datetime import datetime
 from ..models.development_trail import DevelopmentTrailStatus
 
 
 class DevelopmentTrailRequest(BaseModel):
-    name: str = Field(..., example="Joao")
-    age: Optional[int] = Field(None, example=23)
-    education: Optional[str] = Field(None, example="Graduação em andamento")
-    current_area: Optional[str] = Field(None, example="Estudante de TI")
-    experience_in_years: Optional[int] = Field(None, example=1)
-    skills: List[str] = Field(..., example=["Python", "SQL", "Git"])
-    interested_technologies: Optional[List[str]] = Field(None, example=["Back-End", "Data Science"])
-    current_level: Optional[str] = Field(None, example="Intermediário")
-    professional_goal: str = Field(..., example="Desenvolvimento Back-End")
-    available_time_week: Optional[str] = Field(None, example="Até 15 horas semanais")
-    goal_timeframe: Optional[str] = Field(None, example="Conseguir estágio em até 6 meses")
-    additional_information: Optional[str] = Field(None, example="Tenho interesse em DevOps e bancos de dados")
+    # Limites de tamanho: estes textos vão para o prompt, então ficam curtos por custo e abuso.
+    name: str = Field(..., min_length=1, max_length=100, example="Joao")
+    age: Optional[int] = Field(None, ge=0, le=120, example=23)
+    education: Optional[str] = Field(None, max_length=200, example="Graduação em andamento")
+    current_area: Optional[str] = Field(None, max_length=200, example="Estudante de TI")
+    experience_in_years: Optional[int] = Field(None, ge=0, le=80, example=1)
+    skills: List[Annotated[str, StringConstraints(max_length=60)]] = Field(
+        ..., max_length=30, example=["Python", "SQL", "Git"]
+    )
+    interested_technologies: Optional[List[Annotated[str, StringConstraints(max_length=60)]]] = Field(
+        None, max_length=30, example=["Back-End", "Data Science"]
+    )
+    current_level: Optional[str] = Field(None, max_length=50, example="Intermediário")
+    professional_goal: str = Field(..., min_length=1, max_length=200, example="Desenvolvimento Back-End")
+    available_time_week: Optional[str] = Field(None, max_length=100, example="Até 15 horas semanais")
+    goal_timeframe: Optional[str] = Field(None, max_length=100, example="Conseguir estágio em até 6 meses")
+    additional_information: Optional[str] = Field(
+        None, max_length=1000, example="Tenho interesse em DevOps e bancos de dados"
+    )
 
 
 class DevelopmentTrailResponse(BaseModel):
