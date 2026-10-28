@@ -29,8 +29,26 @@ class FakeLLM:
         self.error = error
         self.calls = []
 
-    async def generate(self, prompt, params):
-        self.calls.append((prompt, params))
+    async def generate(self, prompt, params, response_schema=None):
+        self.calls.append((prompt, params, response_schema))
         if self.error:
             raise self.error
         return self.text
+
+
+def sample_output(schema):
+    """Instância mínima e válida de um schema de saída da IA, como dict pronto para json.dumps."""
+    from typing import Literal, get_args, get_origin
+
+    from pydantic import BaseModel
+
+    def build(annotation):
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            return {n: build(f.annotation) for n, f in annotation.model_fields.items()}
+        if get_origin(annotation) is list:
+            return [build(get_args(annotation)[0])]
+        if get_origin(annotation) is Literal:
+            return get_args(annotation)[0]
+        return "x"
+
+    return build(schema)

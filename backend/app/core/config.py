@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     # Mínimo de 20 s: o SDK responde um 500 sem causa clara a timeouts muito baixos
     # (googleapis/python-genai#1330).
     GEMINI_TIMEOUT_SECONDS: int = Field(default=90, ge=20, le=300)
+    # 0 desliga o raciocínio, -1 deixa o modelo decidir. Nem todo modelo aceita 0 (ex.: 2.5-pro).
+    GEMINI_THINKING_BUDGET: int = Field(default=0, ge=-1, le=24576)
 
 
 settings = Settings()

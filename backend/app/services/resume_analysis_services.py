@@ -1,11 +1,11 @@
 from fastapi import UploadFile
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
-from app.llm.responses import parse_json_response
+from app.llm.responses import parse_structured_response
+from app.schemas.ai_outputs import ResumeAnalysisOutput
 from app.utils.resume_analysis_utils import (
     RESUME_ANALYSIS_PARAMS,
     build_resume_analysis_prompt,
-    extract_analysis_json_from_text,
 )
 from app.models.user import User
 from app.schemas.resume_analysis_schema import (
@@ -15,7 +15,6 @@ from app.schemas.resume_analysis_schema import (
 )
 from app.utils.pdf_utils import check_pdf
 from app.repository.resume_analysis_repository import ResumeAnalysisRepository
-from app.core.logging_config import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
@@ -39,12 +38,12 @@ class ResumeAnalysisService:
         text = await check_pdf(file)
 
         prompt = build_resume_analysis_prompt(text)
-        response_text = await self.llm.generate(prompt, RESUME_ANALYSIS_PARAMS)
-        analysis_result = parse_json_response(extract_analysis_json_from_text, response_text)
-
-        # Verifica se tem pelo menos alguns campos esperados
-        if not analysis_result.get("professional_summary") and not analysis_result.get("technical_skills"):
-            logger.warning("Resultado da análise pode estar incompleto, mas prosseguindo...")
+        response_text = await self.llm.generate(
+            prompt, RESUME_ANALYSIS_PARAMS, response_schema=ResumeAnalysisOutput
+        )
+        analysis_result = parse_structured_response(
+            ResumeAnalysisOutput, response_text
+        ).model_dump()
 
         # Salva no banco
         resume_analysis = await self.resume_analysis_repository.create(

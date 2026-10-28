@@ -8,7 +8,9 @@ from google.genai import errors, types
 
 from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.llm.client import GeminiClient, GenerationParams
-from app.llm.responses import parse_json_response
+from pydantic import BaseModel
+
+from app.llm.responses import parse_structured_response
 
 SECRET = "projects/123/locations/us/apiKey=AIza-secret"
 PARAMS = GenerationParams(temperature=0.2, top_p=0.7, top_k=40, max_output_tokens=123)
@@ -135,25 +137,61 @@ def test_unexpected_programming_error_is_not_swallowed():
         generate(FakeModels(error=KeyError("bug")))
 
 
-# ---------- parse_json_response ----------
+def test_structured_request_sends_schema_and_json_mime_type():
+    class Out(BaseModel):
+        a: int
 
-def test_parse_json_response_returns_the_parsed_dict():
-    assert parse_json_response(lambda t: {"a": 1}, "x") == {"a": 1}
+    models = FakeModels(response=response('{"a": 1}'))
+    asyncio.run(make_client(models).generate("p", PARAMS, response_schema=Out))
+
+    config = models.calls[0]["config"]
+    assert config.response_schema is Out
+    assert config.response_mime_type == "application/json"
 
 
-@pytest.mark.parametrize("parsed", [{}, [], None, "text"], ids=repr)
-def test_parse_json_response_rejects_unusable_results(parsed):
+def test_plain_request_has_no_schema():
+    models = FakeModels(response=response())
+    generate(models)
+
+    assert models.calls[0]["config"].response_schema is None
+
+
+@pytest.mark.parametrize("budget", [0, 1024, -1])
+def test_thinking_budget_reaches_the_sdk(budget):
+    models = FakeModels(response=response())
+    sdk = SimpleNamespace(aio=SimpleNamespace(models=models))
+    client = GeminiClient(api_key="k", model="m", timeout_seconds=20, thinking_budget=budget, client=sdk)
+
+    asyncio.run(client.generate("p", PARAMS))
+
+    assert models.calls[0]["config"].thinking_config.thinking_budget == budget
+
+
+# ---------- parse_structured_response ----------
+
+class Item(BaseModel):
+    name: str
+    tags: list[str]
+
+
+def test_parse_structured_response_returns_the_validated_model():
+    assert parse_structured_response(Item, '{"name": "a", "tags": ["x"]}') == Item(name="a", tags=["x"])
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", "not json", "[]", "null", "{}", '{"name": "a"}', '{"name": 1, "tags": []}', '{"name": "a", "tags": ["x"]'],
+    ids=repr,
+)
+def test_parse_structured_response_rejects_anything_outside_the_contract(text):
     with pytest.raises(ExternalServiceException) as exc_info:
-        parse_json_response(lambda t: parsed, "x")
+        parse_structured_response(Item, text)
 
     assert exc_info.value.code == "ai_invalid_response"
 
 
-def test_parse_json_response_converts_parser_failure():
-    def parser(text):
-        raise ValueError("boom")
-
+def test_parse_structured_response_does_not_leak_model_content_in_the_message():
     with pytest.raises(ExternalServiceException) as exc_info:
-        parse_json_response(parser, "x")
+        parse_structured_response(Item, '{"name": "' + SECRET + '"}')
 
-    assert exc_info.value.code == "ai_invalid_response"
+    assert SECRET not in exc_info.value.message

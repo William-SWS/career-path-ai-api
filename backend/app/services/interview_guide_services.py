@@ -1,12 +1,12 @@
 from fastapi import UploadFile
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
-from app.llm.responses import parse_json_response
+from app.llm.responses import parse_structured_response
+from app.schemas.ai_outputs import InterviewGuideOutput
 from app.models.user import User
 from app.utils.interview_guide_utils import (
     INTERVIEW_GUIDE_PARAMS,
     build_interview_guide_prompt,
-    extract_interview_json_from_text,
 )
 from app.schemas.interview_guide_schema import (
     InterviewGuideResponse, 
@@ -15,7 +15,6 @@ from app.schemas.interview_guide_schema import (
 )
 from app.utils.pdf_utils import check_pdf
 from app.repository.interview_guide_repository import InterviewGuideRepository
-from app.core.logging_config import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
@@ -39,12 +38,12 @@ class InterviewGuideService:
         resume_text = await check_pdf(file)
 
         prompt = build_interview_guide_prompt(resume_text, job_description)
-        response_text = await self.llm.generate(prompt, INTERVIEW_GUIDE_PARAMS)
-        interview_guide_result = parse_json_response(extract_interview_json_from_text, response_text)
-
-        # Verifica se tem pelo menos alguns campos esperados
-        if not interview_guide_result.get("preparation_overview") and not interview_guide_result.get("technical_preparation"):
-            logger.warning("Resultado do guia pode estar incompleto, mas prosseguindo...")
+        response_text = await self.llm.generate(
+            prompt, INTERVIEW_GUIDE_PARAMS, response_schema=InterviewGuideOutput
+        )
+        interview_guide_result = parse_structured_response(
+            InterviewGuideOutput, response_text
+        ).model_dump()
 
         interview_guide = await self.interview_guide_repository.create(
             user_id=current_user.id,

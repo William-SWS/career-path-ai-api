@@ -6,6 +6,7 @@ from typing import Protocol
 import httpx
 from google import genai
 from google.genai import errors, types
+from pydantic import BaseModel
 
 from app.core.exceptions import ExternalServiceException, RateLimitException
 from app.core.logging_config import logger
@@ -29,7 +30,12 @@ class LLMClient(Protocol):
     Existe para que os testes usem um FakeLLM determinístico, sem rede.
     """
 
-    async def generate(self, prompt: str, params: GenerationParams) -> str: ...
+    async def generate(
+        self,
+        prompt: str,
+        params: GenerationParams,
+        response_schema: type[BaseModel] | None = None,
+    ) -> str: ...
 
 
 class GeminiClient:
@@ -38,10 +44,12 @@ class GeminiClient:
         api_key: str,
         model: str,
         timeout_seconds: int,
+        thinking_budget: int = 0,
         client: genai.Client | None = None,
     ):
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.thinking_budget = thinking_budget
         self._client = client
         if self._client is None and api_key:
             self._client = genai.Client(
@@ -50,7 +58,12 @@ class GeminiClient:
                 http_options=types.HttpOptions(timeout=timeout_seconds * 1000),
             )
 
-    async def generate(self, prompt: str, params: GenerationParams) -> str:
+    async def generate(
+        self,
+        prompt: str,
+        params: GenerationParams,
+        response_schema: type[BaseModel] | None = None,
+    ) -> str:
         if self._client is None:
             # Sem chave só a geração falha; o resto da API continua funcionando.
             raise ExternalServiceException(
@@ -62,7 +75,12 @@ class GeminiClient:
             top_p=params.top_p,
             top_k=params.top_k,
             max_output_tokens=params.max_output_tokens,
+            # Os tokens de raciocínio contam no max_output_tokens e somam latência.
+            thinking_config=types.ThinkingConfig(thinking_budget=self.thinking_budget),
         )
+        if response_schema is not None:
+            config.response_mime_type = "application/json"
+            config.response_schema = response_schema
 
         try:
             async with asyncio.timeout(self.timeout_seconds + _HARD_TIMEOUT_MARGIN_SECONDS):
@@ -130,4 +148,5 @@ def get_llm_client() -> LLMClient:
         api_key=settings.GEMINI_API_KEY,
         model=settings.GEMINI_MODEL,
         timeout_seconds=settings.GEMINI_TIMEOUT_SECONDS,
+        thinking_budget=settings.GEMINI_THINKING_BUDGET,
     )

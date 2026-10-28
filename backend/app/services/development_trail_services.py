@@ -1,10 +1,10 @@
 from app.core.exceptions import NotFoundException
 from app.llm.client import LLMClient
-from app.llm.responses import parse_json_response
+from app.llm.responses import parse_structured_response
+from app.schemas.ai_outputs import DevelopmentTrailOutput
 from app.utils.development_trail_utils import (
     DEVELOPMENT_TRAIL_PARAMS,
     create_adaptive_development_trail_prompt,
-    extract_json_from_response,
 )
 from app.schemas.development_trail_schema import (
     DevelopmentTrailRequest,
@@ -15,7 +15,6 @@ from app.schemas.development_trail_schema import (
 )
 from app.models.user import User
 from app.repository.development_trail_repository import DevelopmentTrailRepository
-from app.core.logging_config import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 from ..models.development_trail import DevelopmentTrailStatus
@@ -48,12 +47,12 @@ class DevelopmentTrailService:
     ) -> DevelopmentTrailResponse:
         """Serviço que gera trilha de desenvolvimento usando Google Gemini"""
         prompt = create_adaptive_development_trail_prompt(user_data)
-        response_text = await self.llm.generate(prompt, DEVELOPMENT_TRAIL_PARAMS)
-        development_trail_result = parse_json_response(extract_json_from_response, response_text)
-
-        # Verifica se tem pelo menos alguns campos esperados
-        if not development_trail_result.get("user_profile_summary") and not development_trail_result.get("development_phases"):
-            logger.warning("Resultado da trilha pode estar incompleto, mas prosseguindo...")
+        response_text = await self.llm.generate(
+            prompt, DEVELOPMENT_TRAIL_PARAMS, response_schema=DevelopmentTrailOutput
+        )
+        development_trail_result = parse_structured_response(
+            DevelopmentTrailOutput, response_text
+        ).model_dump()
 
         development_trail = await self.development_trail_repository.create(
             user_id=current_user.id,

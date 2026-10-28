@@ -13,7 +13,8 @@ from app.schemas.development_trail_schema import (
     DevelopmentTrailRequest,
     DevelopmentTrailUpdateRequest,
 )
-from tests.fakes import FakeLLM, FakeSession
+from app.schemas.ai_outputs import DevelopmentTrailOutput, InterviewGuideOutput, ResumeAnalysisOutput
+from tests.fakes import FakeLLM, FakeSession, sample_output
 from app.services import interview_guide_services, resume_analysis_services
 from app.services.development_trail_services import DevelopmentTrailService
 from app.services.interview_guide_services import InterviewGuideService
@@ -108,7 +109,11 @@ TRAIL_REQUEST = DevelopmentTrailRequest(name="Maria", skills=["Python"], profess
 
 # ---------- geração: o resultado da IA só é salvo se for utilizável
 
-UNUSABLE_AI_TEXTS = ["{}", "[]", "null", '"just text"', "no json at all", ""]
+UNUSABLE_AI_TEXTS = [
+    "{}", "[]", "null", '"just text"', "no json at all", "",
+    '{"user_profile_summary": {"current_profile": "x"}}',  # fora do contrato
+    '```json\n{}\n```',  # markdown não é consertado
+]
 
 
 @pytest.mark.parametrize("bad_text", UNUSABLE_AI_TEXTS, ids=repr)
@@ -124,13 +129,14 @@ def test_trail_with_unusable_ai_result_is_not_saved(bad_text):
 
 
 def test_trail_is_saved_for_the_requesting_user_and_the_prompt_reaches_the_model():
-    llm = FakeLLM(json.dumps({"user_profile_summary": {}}))
+    llm = FakeLLM(json.dumps(sample_output(DevelopmentTrailOutput)))
     service, repo = make_service(DevelopmentTrailService, "development_trail_repository", llm=llm)
 
     response = run(service.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER))
 
     assert repo.created[0].user_id == USER.id
-    assert response.development_trail == {"user_profile_summary": {}}
+    assert response.development_trail == sample_output(DevelopmentTrailOutput)
+    assert llm.calls[0][2] is DevelopmentTrailOutput  # o schema vai ao provedor
     assert response.status == "In Progress"
     assert "Back-End" in llm.calls[0][0]  # o objetivo do usuário foi para o prompt
     assert commits(service) == 1
@@ -158,13 +164,13 @@ def test_interview_guide_with_unusable_ai_result_is_not_saved(monkeypatch):
 
 
 def test_interview_guide_is_saved_and_receives_resume_and_job(monkeypatch):
-    llm = FakeLLM(json.dumps({"preparation_overview": "x"}))
+    llm = FakeLLM(json.dumps(sample_output(InterviewGuideOutput)))
     service, repo = make_service(InterviewGuideService, "interview_guide_repository", llm=llm)
     stub_pdf(monkeypatch, interview_guide_services, text="RESUME-TEXT")
 
     response = run(service.generate_interview_guide_service(pdf_upload(), "JOB-TEXT", USER))
 
-    assert response.interview_guide == {"preparation_overview": "x"}
+    assert response.interview_guide == sample_output(InterviewGuideOutput)
     assert len(repo.created) == 1
     assert "RESUME-TEXT" in llm.calls[0][0] and "JOB-TEXT" in llm.calls[0][0]
 
@@ -180,23 +186,14 @@ def test_resume_analysis_with_unusable_ai_result_is_not_saved(monkeypatch):
 
 
 def test_resume_analysis_is_saved_and_receives_the_resume_text(monkeypatch):
-    llm = FakeLLM(json.dumps({"professional_summary": "x"}))
+    llm = FakeLLM(json.dumps(sample_output(ResumeAnalysisOutput)))
     service, repo = make_service(ResumeAnalysisService, "resume_analysis_repository", llm=llm)
     stub_pdf(monkeypatch, resume_analysis_services, text="RESUME-TEXT")
 
     response = run(service.analyze_resume_service(pdf_upload(), USER))
 
-    assert response.analysis_result == {"professional_summary": "x"}
+    assert response.analysis_result == sample_output(ResumeAnalysisOutput)
     assert "RESUME-TEXT" in llm.calls[0][0]
-
-
-def test_model_output_wrapped_in_markdown_is_still_accepted():
-    llm = FakeLLM('```json\n{"user_profile_summary": {"a": 1}}\n```')
-    service, _ = make_service(DevelopmentTrailService, "development_trail_repository", llm=llm)
-
-    response = run(service.generate_development_trail_with_gemini_service(TRAIL_REQUEST, USER))
-
-    assert response.development_trail == {"user_profile_summary": {"a": 1}}
 
 
 # ---------- recursos de outro usuário ou inexistentes: sempre 404
