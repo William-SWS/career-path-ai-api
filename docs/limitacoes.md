@@ -15,9 +15,9 @@ Não há evidência suficiente para afirmar isso. Falta, no mínimo:
 ## Qualidade da IA
 
 - **Verificado:** que a saída respeita o schema, que um currículo fictício com injeção não alterou a classificação (uma amostra) e que retry, timeout e tradução de erros funcionam **com erros simulados**.
-- **Não verificado:** a qualidade do conteúdo gerado. A avaliação sintética ([`backend/evals`](../backend/evals/README.md)) mede só critérios objetivos, e sua primeira execução ficou incompleta: a cota da chave acabou e **9 das 36 chamadas** foram respondidas (todas passaram nos critérios, o que é uma amostra pequena demais para concluir algo). Não rodei o conjunto completo.
+- **Não verificado:** a qualidade do conteúdo gerado. A avaliação sintética ([`backend/evals`](../backend/evals/README.md)) mede só critérios objetivos, e nenhuma execução chegou a completar o conjunto: a cota gratuita da chave (20 requisições por dia para o `gemini-2.5-flash`) acabou antes. Na melhor execução, **22 das 36 chamadas** foram respondidas (trilha 8, guia 7, análise 7), todas passaram em todos os critérios e o nível de senioridade ficou estável entre as repetições que rodaram. As 14 chamadas restantes não foram executadas, incluindo o caso `injection_in_resume` da trilha, então não há resultado para elas. Não rodei o conjunto completo.
 - **Decisão pendente:** `GEMINI_THINKING_BUDGET=0` foi escolhido pela latência (21,7 s → 8,8 s em uma chamada por configuração). O efeito na qualidade é desconhecido.
-- **Retry contra a API real:** não validado; só com erros simulados.
+- **Retry contra a API real:** visto funcionando **uma vez**, na avaliação: um 503 foi seguido de nova tentativa após 0,5 s e de resposta 200 (`attempts=2` no log). Fora isso, só foi testado com erros simulados. Um evento não mede a taxa de recuperação.
 - Os cursos e links que o modelo recomenda **não são checados** e podem não existir.
 - O modelo, os prompts e a data da avaliação determinam o resultado: mudar qualquer um exige rodá-la de novo.
 
