@@ -1,5 +1,6 @@
 // fetchInterceptor.js - Intercepta requisições fetch para adicionar refresh automático
 
+import { API_URL } from '../config';
 import { apiRequest } from './apiClient';
 
 // Guarda a referência original do fetch
@@ -10,7 +11,7 @@ window.fetch = async function(url, options = {}) {
   const urlString = typeof url === 'string' ? url : url.toString();
   
   // Se a URL não é da nossa API, usa fetch normal
-  const isApiRequest = urlString.includes('localhost:8000') || urlString.includes('/api/v1/');
+  const isApiRequest = urlString.startsWith(API_URL) || urlString.includes('/api/v1/');
   
   if (!isApiRequest) {
     return originalFetch(url, options);

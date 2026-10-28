@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header'; // Importando o Header component
 import { getDevelopmentTrailById } from '../services/authService';
+import { API_URL } from '../config';
 import jsPDF from 'jspdf';
 import './DevelopmentTrailPage.css';
 
@@ -50,7 +51,7 @@ const DevelopmentTrailPage = () => {
         } else if (err.status === 403 || err.message.includes('403')) {
           setError('Acesso negado. Esta trilha pertence a outro usuário.');
         } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-          setError('Erro de conexão com o servidor. Verifique se o backend está rodando em http://localhost:8000');
+          setError(`Erro de conexão com o servidor. Verifique se o backend está rodando em ${API_URL}`);
         } else {
           setError(`Erro ao carregar trilha: ${err.message || 'Erro desconhecido'}. Verifique o console para mais detalhes.`);
         }

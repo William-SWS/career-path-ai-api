@@ -1,6 +1,7 @@
 // apiClient.js - Cliente HTTP com refresh automático de token
 
-const API_URL = 'http://localhost:8000';
+import { API_URL } from '../config';
+
 let isRefreshing = false;
 let refreshPromise = null;
 let failedQueue = [];

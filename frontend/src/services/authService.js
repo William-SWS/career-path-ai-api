@@ -1,7 +1,6 @@
 import { apiRequest } from '../utils/apiClient';
 import { readErrorMessage } from '../utils/errorMessage';
-
-const API_URL = 'http://localhost:8000';
+import { API_URL } from '../config';
 
 export async function registerUser(email, name, password) {
   const response = await fetch(`${API_URL}/api/v1/auth/register`, {
