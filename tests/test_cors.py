@@ -30,14 +30,14 @@ def test_preflight_from_any_other_origin_is_rejected(client):
 
 
 def test_responses_are_not_readable_from_other_origins(client):
-    response = client.get(f"{API}/check/", headers={"Origin": EVIL})
+    response = client.get("/health", headers={"Origin": EVIL})
 
     assert "access-control-allow-origin" not in response.headers
 
 
 def test_cors_does_not_enable_credentialed_requests(client):
     # A API autentica por header Authorization, não por cookie.
-    response = client.get(f"{API}/check/", headers={"Origin": settings.FRONTEND_HOST})
+    response = client.get("/health", headers={"Origin": settings.FRONTEND_HOST})
 
     assert response.headers["access-control-allow-origin"] == settings.FRONTEND_HOST
     assert "access-control-allow-credentials" not in response.headers

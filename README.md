@@ -47,7 +47,7 @@ cp .env.example .env     # um único arquivo: preencha-o (veja abaixo)
 docker compose up --build
 ```
 
-As migrations rodam sozinhas na inicialização da API. Os campos obrigatórios do `.env` e o que cada um faz estão em [`docs/desenvolvimento.md`](docs/desenvolvimento.md#configuração). O mesmo arquivo serve ao compose, ao container da API e a quem roda a API fora do Docker: dentro do container o compose sobrescreve `POSTGRES_HOST`, `POSTGRES_PORT` e `REDIS_URL`. Preencha `FRONTEND_HOST` com a origem do frontend (`http://localhost:5173`, para o CORS). O `SECRET_KEY` precisa ter **pelo menos 32 caracteres**; para gerar um:
+As migrations rodam sozinhas na inicialização da API. Os campos obrigatórios do `.env` e o que cada um faz estão em [`docs/desenvolvimento.md`](docs/desenvolvimento.md#configuração). O mesmo arquivo serve ao compose, ao container da API e a quem roda a API fora do Docker: dentro do container o compose sobrescreve `POSTGRES_HOST`, `POSTGRES_PORT` e `REDIS_URL`. Preencha `FRONTEND_HOST` com a origem do frontend, **com o `http://`** (`http://localhost:5173`, para o CORS): sem o esquema a API não inicia. O compose publica a API (`8000`) e o Postgres (`5433`) só em `127.0.0.1`, e recusa subir se `POSTGRES_USER`, `POSTGRES_PASSWORD` ou `POSTGRES_DB` estiverem vazios (isso vale também para `docker compose down`). O `SECRET_KEY` precisa ter **pelo menos 32 caracteres**; para gerar um:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"
