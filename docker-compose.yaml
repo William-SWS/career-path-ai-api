@@ -21,6 +21,14 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # Liveness: só o processo (sem dependências, para não reiniciar a API por culpa do banco).
+    # A prontidão com Postgres e Redis fica em /ready.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:17

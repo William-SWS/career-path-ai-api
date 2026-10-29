@@ -83,7 +83,7 @@ Prefixo `/api/v1`. As rotas com 🔒 exigem `Authorization: Bearer <access token
 | Análise de currículo | `POST /resume-analysis/` 🔒 (PDF), `GET /resume-analysis/` 🔒, `GET`/`DELETE /resume-analysis/{id}` 🔒 |
 | Guia de entrevista | `POST /interview-guide/` 🔒 (PDF + vaga), `GET /interview-guide/` 🔒, `GET`/`DELETE /interview-guide/{id}` 🔒 |
 | Trilha de desenvolvimento | `POST /development-trail/` 🔒, `GET /development-trail/` 🔒, `GET`/`PATCH`/`DELETE /development-trail/{id}` 🔒 |
-| Saúde | `GET /check/` |
+| Saúde (sem o prefixo `/api/v1`) | `GET /health` (liveness), `GET /ready` (Postgres e Redis: 503 se o Postgres cair, 200 `degraded` se só o Redis cair) |
 
 Todo erro usa o mesmo formato:
 

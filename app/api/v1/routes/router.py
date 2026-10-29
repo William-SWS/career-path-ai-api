@@ -2,7 +2,6 @@ from fastapi import APIRouter
 
 from app.api.v1.routes import (
     auth_routes,
-    health_routes,
     development_trail_routes,
     interview_guide_routes,
     resume_analysis_routes,
@@ -12,7 +11,6 @@ from app.api.v1.routes import (
 router = APIRouter()
 
 router.include_router(auth_routes.router, prefix="/auth", tags=["auth"])
-router.include_router(health_routes.router, prefix="/check", tags=["check"])
 router.include_router(
     interview_guide_routes.router, prefix="/interview-guide", tags=["interview-guide"]
 )

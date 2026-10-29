@@ -3,13 +3,6 @@ import pytest
 API = "/api/v1"
 
 
-def test_healthcheck_responds_online(client):
-    response = client.get(f"{API}/check/")
-
-    assert response.status_code == 200
-    assert response.json()["status"] == "online"
-
-
 def test_unknown_route_returns_error_envelope(client):
     response = client.get(f"{API}/does-not-exist")
 
