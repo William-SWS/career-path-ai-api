@@ -10,7 +10,7 @@ Não há evidência suficiente para afirmar isso. Falta, no mínimo:
 - observabilidade além de logs (métricas, tracing, alertas);
 - política de backup e restauração do PostgreSQL;
 - processo de rotação de segredos (`SECRET_KEY`, chave do Gemini, senha SMTP);
-- monitoramento que use os endpoints de saúde: `GET /health` (liveness) e `GET /ready` (Postgres e Redis; o Gemini não é consultado, para não gastar cota nem depender de terceiros) existem, mas nada os consome além do `healthcheck` da API no compose, que chama só `/health`. Os testes automatizados usam dependências simuladas; o comportamento real (tudo de pé, Redis fora → 200 `degraded`, Postgres fora → 503) foi conferido uma vez, à mão, subindo o compose e parando os containers. O CI não repete essa checagem.
+- monitoramento que use os endpoints de saúde: `GET /health` (liveness) e `GET /ready` (Postgres e Redis; o Gemini não é consultado, para não gastar cota nem depender de terceiros) existem, mas nada os consome além do `healthcheck` da API no compose, que chama só `/health`. O `/ready` é **público** no código (o corpo só diz `ok`/`down`, sem detalhes de erro) e guarda o resultado por 3 s, o que limita o custo de quem o chamar em loop; em produção o proxy reverso deveria bloqueá-lo para fora, e não há proxy hoje. Os testes automatizados usam dependências simuladas; o comportamento real (tudo de pé, Redis fora → 200 `degraded`, Postgres fora → 503) foi conferido uma vez, à mão, subindo o compose e parando os containers. O CI não repete essa checagem.
 
 ## Qualidade da IA
 

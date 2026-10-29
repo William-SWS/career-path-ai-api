@@ -162,3 +162,16 @@ Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), *
 
 **Custo.** Um `DELETE` curto e indexado no caminho do logout, e uma falha nele derruba a revogação. Um acúmulo antigo de linhas vencidas é drenado aos poucos, 100 por revogação. `psycopg2` continua nas dependências porque o Alembic usa o driver síncrono.
 
+
+## 19. `/ready`: resultado em cache e conexão própria
+
+**Problema.** O `/ready` é público e, a cada chamada, abria uma conexão do pool do tráfego, rodava `SELECT 1` e fazia `PING` no Redis. Duas consequências: chamá-lo em loop pressionava o banco; e, com o pool esgotado por carga, ele estourava o timeout e respondia 503 ("Postgres fora") com o Postgres saudável, o que tira a API de rotação justamente sob carga.
+
+**Escolha.** (1) O resultado fica em cache por 3 s e só uma verificação roda por vez: quem chega com o cache vencido espera a verificação em curso. (2) O `SELECT 1` usa um engine próprio (`probe_engine`: `pool_size=1`, `max_overflow=0`, `pre_ping`), fora do pool do tráfego. "Pool ocupado" deixa de ser lido como "banco fora".
+
+**Medido.** Com a stack real: 200 chamadas seguidas ao `/ready` geraram cerca de uma verificação no banco; uma queda do Postgres aparece depois do TTL (503) e some sozinha quando ele volta. Os testes falham sem a trava (30 verificações para 30 chamadas simultâneas) e sem o cache.
+
+**Alternativas descartadas.** Rate limit no `/ready`: faria a sonda depender do Redis que ela mesma checa, e atrás de proxy o IP seria o do proxy. Restrição de rede em código: frágil sem proxy; o certo é o proxy reverso não expor `/ready` ao público.
+
+**Custo.** Uma queda leva até 3 s para aparecer (o orquestrador sonda a cada 10-15 s). O engine próprio mantém uma conexão a mais aberta. O `/ready` continua público no código: só o proxy resolve isso, e hoje não há proxy.
+

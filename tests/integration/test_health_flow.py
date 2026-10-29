@@ -28,7 +28,7 @@ def probe(http, monkeypatch):
             uri = uri.set(port=port)
         # Sem pool, como os demais testes: o TestClient roda em outro event loop.
         monkeypatch.setattr(
-            health_routes, "async_engine", create_async_engine(uri, poolclass=NullPool)
+            health_routes, "probe_engine", create_async_engine(uri, poolclass=NullPool)
         )
         monkeypatch.setattr(settings, "REDIS_URL", redis_url or "")
         app.dependency_overrides[get_rate_limiter] = lambda: build_rate_limiter(redis_url or "")

@@ -14,6 +14,13 @@ async_engine = create_async_engine(
     echo=settings.DEBUG,
 )
 
+# Engine só do /ready: uma conexão, fora do pool do tráfego. Com o pool esgotado por carga, o
+# /ready continua respondendo se o Postgres está de pé (ocupada não é o mesmo que fora do ar).
+# pre_ping porque a conexão fica parada entre sondas e o Postgres pode ter reiniciado.
+probe_engine = create_async_engine(
+    settings.DATABASE_URI, pool_size=1, max_overflow=0, pool_pre_ping=True
+)
+
 AsyncSessionLocal = async_sessionmaker(
     autocommit=False, autoflush=False, bind=async_engine, class_=AsyncSession
 )
