@@ -7,7 +7,7 @@ Este documento descreve **como a API funciona hoje** (o frontend vive em [`caree
 ```
 .
 ├── app/
-│   ├── main.py                  # cria a app, CORS, handlers de erro, agendador
+│   ├── main.py                  # cria a app, CORS, handlers de erro
 │   ├── api/v1/
 │   │   ├── routes/              # rotas finas: validam entrada e chamam um serviço
 │   │   └── dependencies/        # autenticação, rate limit e injeção de serviços
@@ -16,8 +16,9 @@ Este documento descreve **como a API funciona hoje** (o frontend vive em [`caree
 │   ├── models/                  # tabelas (SQLAlchemy 2, tipadas)
 │   ├── schemas/                 # contratos HTTP e o formato das saídas da IA (Pydantic)
 │   ├── llm/                     # cliente do Gemini, prompts versionados, validação da saída
-│   ├── core/                    # config, banco, segurança, exceções, rate limit, agendador
-│   └── utils/                   # PDF, tokens, montagem de prompts
+│   ├── security/                # senhas (bcrypt), tokens JWT e a blacklist de revogações
+│   ├── core/                    # config, banco, exceções, rate limit, e-mail
+│   └── utils/                   # PDF e montagem de prompts
 ├── migrations/                  # Alembic
 ├── tests/                       # unitários e de integração
 ├── evals/                       # avaliação manual da geração com IA
@@ -71,7 +72,7 @@ Na geração com IA, isso significa que **nada é salvo se o modelo falhar ou de
 - **Três tipos de token**, distinguidos pela claim `type`: `access`, `refresh` e `reset_password`. Um não vale no lugar do outro (testado). Cada token tem um `jti` para ser único.
 - **A troca de senha encerra as sessões.** Access e refresh levam a claim `pwd`, a impressão (HMAC) do hash da senha com que foram emitidos. `_authenticate` compara a claim com a senha atual do usuário; se a senha mudou, ou se o token não tem a claim, a resposta é 401. Não há estado extra no banco. Consequência: tokens emitidos antes dessa claim existir deixaram de valer e as pessoas precisaram entrar de novo uma vez.
 - **Rotação do refresh token.** `POST /auth/refresh` devolve um novo access **e um novo refresh**; o refresh usado é revogado na hora. O novo herda a expiração do original, então a sessão acaba no máximo `REFRESH_TOKEN_EXPIRE_DAYS` depois do login, por mais que seja renovada. A revogação é um `INSERT ... ON CONFLICT DO NOTHING` na blacklist: se duas renovações chegam juntas com o mesmo refresh, o banco decide e só uma vence; a outra recebe 401 (`refresh_token_reused`), nunca 500. O frontend guarda o refresh novo em `utils/apiClient.js`.
-- **Logout** coloca o access token (e o refresh, se enviado) numa *blacklist* no banco, que guarda **só o `jti`** e a expiração (nunca o JWT); uma tarefa agendada (a cada 24 h) remove os expirados.
+- **Logout** coloca o access token (e o refresh, se enviado) numa *blacklist* no banco, que guarda **só o `jti`** e a expiração (nunca o JWT); cada revogação apaga, na mesma transação, até 100 linhas já vencidas (`FOR UPDATE SKIP LOCKED`, com índice em `expires_at`). Não há agendador: a tabela só cresce quando há revogação, então limpar nela a mantém limitada (decisão 18).
 - **Redefinição de senha:** o token carrega uma impressão (HMAC) do hash da senha atual, então **só pode ser usado uma vez**: depois de trocar a senha, o mesmo link deixa de valer.
 - **Login e recuperação não revelam quais contas existem.** O login executa uma verificação de senha fictícia quando o e-mail não existe; antes disso, a diferença de tempo era mensurável (≈219 ms a mais para e-mails existentes, em uma medição local; depois, 222 ms contra 221 ms).
 - `SECRET_KEY` com menos de 32 caracteres impede a API de iniciar. O CORS aceita apenas a origem configurada em `FRONTEND_HOST`.

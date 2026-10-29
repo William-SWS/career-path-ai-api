@@ -6,7 +6,12 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import text
 
-from app.security.blacklist import add_token_to_blacklist, is_token_blacklisted, revoke_token_once
+from app.security.blacklist import (
+    add_token_to_blacklist,
+    is_token_blacklisted,
+    purge_expired_tokens,
+    revoke_token_once,
+)
 from app.security.tokens import TokenType, create_token
 from tests.fakes import unverified_claims
 from tests.integration.conftest import open_sessions
@@ -122,3 +127,75 @@ def test_revoke_once_refuses_invalid_or_already_revoked_tokens():
     assert first is not None
     assert second is None
     assert garbage is None
+
+
+async def insert_rows(session, *, expired: int, valid: int = 0):
+    for i in range(expired):
+        await session.execute(
+            text(
+                "INSERT INTO token_blacklist (jti, expires_at) "
+                "VALUES (:jti, now() - interval '1 hour')"
+            ),
+            {"jti": f"expired-{i}"},
+        )
+    for i in range(valid):
+        await session.execute(
+            text(
+                "INSERT INTO token_blacklist (jti, expires_at) "
+                "VALUES (:jti, now() + interval '1 hour')"
+            ),
+            {"jti": f"valid-{i}"},
+        )
+    await session.commit()
+
+
+async def stored_jtis(session) -> set[str]:
+    return set((await session.execute(text("SELECT jti FROM token_blacklist"))).scalars())
+
+
+@pytest.mark.parametrize("revoke", [add_token_to_blacklist, revoke_token_once])
+def test_revoking_a_token_purges_expired_rows_and_keeps_the_valid_ones(revoke):
+    token = create_token(1, "hash")
+
+    async def scenario():
+        async with open_sessions() as sessions:
+            async with sessions() as session:
+                await insert_rows(session, expired=3, valid=2)
+                await revoke(token, session)
+                await session.commit()
+            async with sessions() as reader:
+                return await stored_jtis(reader)
+
+    jtis = run(scenario())
+
+    assert jtis == {"valid-0", "valid-1", unverified_claims(token)["jti"]}
+
+
+def test_purge_removes_at_most_one_batch_per_call():
+    async def scenario():
+        async with open_sessions() as sessions:
+            async with sessions() as session:
+                await insert_rows(session, expired=5)
+                first = await purge_expired_tokens(session, limit=2)
+                await session.commit()
+                second = await purge_expired_tokens(session, limit=10)
+                await session.commit()
+            return first, second
+
+    assert run(scenario()) == (2, 3)
+
+
+def test_concurrent_purges_do_not_wait_for_each_other():
+    async def scenario():
+        async with open_sessions() as sessions:
+            async with sessions() as seed:
+                await insert_rows(seed, expired=3)
+            async with sessions() as first, sessions() as second:
+                taken = await purge_expired_tokens(first)  # sem commit: segura as linhas
+                # Com `FOR UPDATE` simples a segunda esperaria o commit da primeira.
+                skipped = await asyncio.wait_for(purge_expired_tokens(second), timeout=5)
+                await first.commit()
+                await second.commit()
+            return taken, skipped
+
+    assert run(scenario()) == (3, 0)

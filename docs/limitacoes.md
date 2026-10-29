@@ -36,7 +36,7 @@ Conhecido e **não** resolvido:
 
 ## Arquitetura e código
 
-- A limpeza agendada de tokens roda **dentro do processo da API** (APScheduler, uma vez por dia). Com vários workers, cada um agenda a sua; é idempotente, mas redundante.
+- A limpeza de revogações vencidas acontece **dentro do logout e da troca de senha** (um `DELETE` de até 100 linhas). Se esse `DELETE` falhar, a revogação falha junto. Testado contra Postgres real, incluindo duas limpezas simultâneas; não medi o custo sob carga.
 - O `mypy` está em modo moderado fora dos módulos novos; o projeto não passa em `--strict`.
 - Os testes de integração cobrem autenticação, transação, liberação de conexão, rate limit e divergência de schema. **Não** cobrem todos os endpoints de ponta a ponta.
 

@@ -1,6 +1,5 @@
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
@@ -15,18 +14,9 @@ async_engine = create_async_engine(
     echo=settings.DEBUG,
 )
 
-# Engine sincrono (para APScheduler)
-sync_engine = create_engine(
-    settings.DATABASE_URI.replace("postgresql+asyncpg://", "postgresql://"),
-    echo=settings.DEBUG,
-)
-
-# Cria SessionLocal
 AsyncSessionLocal = async_sessionmaker(
     autocommit=False, autoflush=False, bind=async_engine, class_=AsyncSession
 )
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine, class_=Session)
 
 
 async def get_db():
@@ -48,14 +38,3 @@ async def release_connection(db: AsyncSession) -> None:
     (que continuam legíveis); a sessão reabre uma conexão na próxima consulta.
     """
     await db.close()
-
-
-def get_db_sync():
-    """
-    Dependency para obter uma sessão de banco de dados síncrona
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()

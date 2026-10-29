@@ -44,7 +44,7 @@ from app.main import app
 
 @pytest.fixture(scope="session")
 def client() -> TestClient:
-    # Sem `with`: o lifespan (scheduler de limpeza de tokens) não é executado.
+    # Sem `with`: cada requisição roda no seu próprio event loop.
     return TestClient(app)
 
 

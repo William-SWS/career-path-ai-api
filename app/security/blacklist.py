@@ -1,14 +1,34 @@
 from datetime import UTC, datetime
+from typing import cast
 
 import jwt
 from jwt import InvalidTokenError
-from sqlalchemy import select
+from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.token_blacklist import TokenBlacklist
+
+# Linhas vencidas apagadas por revogação. A tabela só cresce quando há revogação, então limpar
+# nela mantém o tamanho limitado sem agendador; um lote pequeno limita o custo do logout.
+_PURGE_BATCH_SIZE = 100
+
+
+async def purge_expired_tokens(db: AsyncSession, limit: int = _PURGE_BATCH_SIZE) -> int:
+    """
+    Apaga até `limit` revogações já vencidas e devolve quantas foram. `SKIP LOCKED` faz
+    requisições simultâneas pegarem lotes diferentes, sem esperar uma pela outra.
+    Quem chama é responsável pelo commit.
+    """
+    expired = (
+        select(TokenBlacklist.id)
+        .where(TokenBlacklist.expires_at < func.now())
+        .limit(limit)
+        .with_for_update(skip_locked=True)
+    )
+    result = await db.execute(delete(TokenBlacklist).where(TokenBlacklist.id.in_(expired)))
+    return cast(CursorResult, result).rowcount
 
 
 def _revocation_claims(token: str) -> tuple[str, datetime] | None:
@@ -43,6 +63,7 @@ async def add_token_to_blacklist(token: str, db: AsyncSession) -> None:
 
     db.add(TokenBlacklist(jti=claims[0], expires_at=claims[1]))
     await db.flush()
+    await purge_expired_tokens(db)
 
 
 async def revoke_token_once(token: str, db: AsyncSession) -> datetime | None:
@@ -63,13 +84,6 @@ async def revoke_token_once(token: str, db: AsyncSession) -> datetime | None:
         .on_conflict_do_nothing(index_elements=["jti"])
         .returning(TokenBlacklist.id)
     )
-    return expires_at if result.first() is not None else None
-
-
-def cleanup_expired_tokens(db: Session) -> int:
-    """
-    Remove tokens expirados da blacklist. Quem chama é responsável pelo commit.
-    """
-    now = datetime.now(UTC)
-    deleted_count = db.query(TokenBlacklist).filter(TokenBlacklist.expires_at < now).delete()
-    return deleted_count
+    revoked_now = result.first() is not None
+    await purge_expired_tokens(db)
+    return expires_at if revoked_now else None

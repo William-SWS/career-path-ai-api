@@ -150,3 +150,15 @@ Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), *
 **Endurecimento.** O decode agora exige `exp` e `sub`: o `python-jose` aceitava um token assinado sem expiração. Os testes cobrem token sem `exp`, token sem assinatura (`alg: none`), assinado com outro algoritmo ou com outra chave.
 
 **Custo.** A troca é de biblioteca, não de protocolo; as exceções passaram de `JWTError` para `InvalidTokenError`. Com `ALGORITHM=HS512`, o PyJWT emite um aviso se `SECRET_KEY` tiver menos de 64 bytes (o mínimo da API é 32 caracteres); é só um aviso.
+
+
+## 18. Limpeza de tokens expirados na própria revogação
+
+**Problema.** A limpeza da blacklist rodava num agendador (APScheduler) dentro da API, a cada 24 h. Com vários workers cada um agendaria a sua, e o job só executava 24 h *depois* de a API subir: uma API reiniciada com mais frequência nunca limpava nada.
+
+**Escolha.** Cada revogação (logout, renovação do refresh, troca de senha) apaga, na mesma transação, até 100 linhas vencidas, com `SELECT ... FOR UPDATE SKIP LOCKED` para que requisições simultâneas peguem lotes diferentes. Migration cria o índice em `expires_at`. O APScheduler, o engine síncrono e o `get_db_sync` saíram. Só a revogação insere linhas, então limpar nela mantém a tabela limitada sem processo extra.
+
+**Alternativas descartadas.** Um comando separado com agendador externo (cron/CronJob): é o padrão de mercado, mas exige mais uma peça de operação; fica como evolução possível. Manter o scheduler com trava no Postgres: menor diff, mas conserva a thread e as dependências só para isso.
+
+**Custo.** Um `DELETE` curto e indexado no caminho do logout, e uma falha nele derruba a revogação. Um acúmulo antigo de linhas vencidas é drenado aos poucos, 100 por revogação. `psycopg2` continua nas dependências porque o Alembic usa o driver síncrono.
+
