@@ -30,7 +30,7 @@ from app.schemas.user_schema import (
     UserUpdateRequest,
     UserUpdateResponse,
 )
-from app.security.blacklist import add_token_to_blacklist, is_token_blacklisted, revoke_token_once
+from app.security.blacklist import revoke_token_once
 from app.security.passwords import bcrypt_context
 from app.security.tokens import (
     TokenType,
@@ -145,11 +145,13 @@ class UserService:
                         "O refresh token não pertence ao usuário autenticado",
                         code="refresh_token_mismatch",
                     )
-                revoke_refresh = not await is_token_blacklisted(refresh_token, self.db)
+                revoke_refresh = True
 
-        await add_token_to_blacklist(access_token, self.db)
+        # `revoke_token_once` é atômico: se outra requisição revogar o mesmo token ao mesmo
+        # tempo (ou ele já estiver revogado), vira no-op em vez de violar a chave única.
+        await revoke_token_once(access_token, self.db)
         if refresh_token and revoke_refresh:
-            await add_token_to_blacklist(refresh_token, self.db)
+            await revoke_token_once(refresh_token, self.db)
         await self.db.commit()
 
         return MessageResponse(message="Logout realizado com sucesso")

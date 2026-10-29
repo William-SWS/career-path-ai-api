@@ -279,13 +279,29 @@ def test_reads_and_failed_writes_never_commit():
     assert service.db.commits == 0
 
 
-def test_logout_blacklists_the_token_it_received():
-    service = make_service(make_user())
+def stub_revocations(monkeypatch, already_revoked=()):
+    """Registra os tokens que o logout tenta revogar; quem decide se já estavam revogados é o banco."""
+    calls = []
+
+    async def revoke_once(token, db):
+        calls.append(token)
+        return None if token in already_revoked else datetime.now(UTC) + timedelta(days=1)
+
+    monkeypatch.setattr(user_service, "revoke_token_once", revoke_once)
+    return calls
+
+
+def jti(token):
+    return unverified_claims(token)["jti"]
+
+
+def test_logout_blacklists_the_token_it_received(monkeypatch):
+    calls = stub_revocations(monkeypatch)
     token = create_token(1, "hash")
 
-    run(service.logout(token, make_user()))
+    run(make_service(make_user()).logout(token, make_user()))
 
-    assert revoked(service) == [jti(token)]
+    assert calls == [token]
 
 
 def test_logout_does_not_report_success_when_the_blacklist_write_fails():
@@ -298,42 +314,26 @@ def test_logout_does_not_report_success_when_the_blacklist_write_fails():
 # ---------- logout revoga access e refresh token na mesma transação
 
 
-def stub_blacklist(monkeypatch, already_revoked=()):
-    async def is_blacklisted(token, db):
-        return token in already_revoked
-
-    monkeypatch.setattr(user_service, "is_token_blacklisted", is_blacklisted)
-
-
-def revoked(service):
-    return [entry.jti for entry in service.db.added]
-
-
-def jti(token):
-    return unverified_claims(token)["jti"]
-
-
 def test_logout_revokes_access_and_refresh_token_in_one_commit(monkeypatch):
-    stub_blacklist(monkeypatch)
+    calls = stub_revocations(monkeypatch)
     me = make_user()
     access, refresh = create_token(me.id, "hash"), create_token(me.id, "hash", TokenType.REFRESH)
     service = make_service(me)
 
     run(service.logout(access, me, refresh))
 
-    assert revoked(service) == [jti(access), jti(refresh)]
+    assert calls == [access, refresh]
     assert service.db.commits == 1
 
 
 def test_logout_without_refresh_token_revokes_only_the_access_token(monkeypatch):
-    stub_blacklist(monkeypatch)
+    calls = stub_revocations(monkeypatch)
     me = make_user()
     access = create_token(me.id, "hash")
-    service = make_service(me)
 
-    run(service.logout(access, me))
+    run(make_service(me).logout(access, me))
 
-    assert revoked(service) == [jti(access)]
+    assert calls == [access]
 
 
 @pytest.mark.parametrize(
@@ -346,30 +346,32 @@ def test_logout_without_refresh_token_revokes_only_the_access_token(monkeypatch)
     ids=["expired", "wrong-type", "garbage"],
 )
 def test_logout_succeeds_when_the_refresh_token_has_nothing_to_revoke(monkeypatch, unusable):
-    stub_blacklist(monkeypatch)
+    calls = stub_revocations(monkeypatch)
     me = make_user()
     access = create_token(me.id, "hash")
     service = make_service(me)
 
     run(service.logout(access, me, unusable))
 
-    assert revoked(service) == [jti(access)]
+    # Só o access token é revogado: um token de outro tipo nunca é revogado como se fosse refresh.
+    assert calls == [access]
     assert service.db.commits == 1
 
 
 def test_logout_is_idempotent_for_an_already_revoked_refresh_token(monkeypatch):
     me = make_user()
     access, refresh = create_token(me.id, "hash"), create_token(me.id, "hash", TokenType.REFRESH)
-    stub_blacklist(monkeypatch, already_revoked={refresh})
+    calls = stub_revocations(monkeypatch, already_revoked={refresh})
     service = make_service(me)
 
-    run(service.logout(access, me, refresh))
+    run(service.logout(access, me, refresh))  # não levanta: o banco trata o já revogado como no-op
 
-    assert revoked(service) == [jti(access)]
+    assert calls == [access, refresh]
+    assert service.db.commits == 1
 
 
 def test_logout_rejects_a_refresh_token_of_another_user_and_revokes_nothing(monkeypatch):
-    stub_blacklist(monkeypatch)
+    calls = stub_revocations(monkeypatch)
     me = make_user(id=1)
     someone_elses = create_token(2, "hash", TokenType.REFRESH)
     service = make_service(me)
@@ -378,7 +380,7 @@ def test_logout_rejects_a_refresh_token_of_another_user_and_revokes_nothing(monk
         run(service.logout(create_token(1, "hash"), me, someone_elses))
 
     assert exc_info.value.code == "refresh_token_mismatch"
-    assert revoked(service) == []
+    assert calls == []
     assert service.db.commits == 0
 
 

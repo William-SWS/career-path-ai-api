@@ -52,20 +52,6 @@ async def is_token_blacklisted(token: str, db: AsyncSession) -> bool:
     return result.first() is not None
 
 
-async def add_token_to_blacklist(token: str, db: AsyncSession) -> None:
-    """
-    Revoga o token, guardando só o `jti` até a expiração dele. Um token inválido ou já
-    expirado não precisa de revogação e é ignorado. Quem chama é responsável pelo commit.
-    """
-    claims = _revocation_claims(token)
-    if claims is None:
-        return
-
-    db.add(TokenBlacklist(jti=claims[0], expires_at=claims[1]))
-    await db.flush()
-    await purge_expired_tokens(db)
-
-
 async def revoke_token_once(token: str, db: AsyncSession) -> datetime | None:
     """
     Revoga o token de forma atômica e devolve a expiração dele, ou None se ele não pôde ser

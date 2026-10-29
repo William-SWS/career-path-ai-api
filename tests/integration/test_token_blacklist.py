@@ -7,7 +7,6 @@ import pytest
 from sqlalchemy import text
 
 from app.security.blacklist import (
-    add_token_to_blacklist,
     is_token_blacklisted,
     purge_expired_tokens,
     revoke_token_once,
@@ -29,7 +28,7 @@ def test_blacklist_stores_the_jti_and_never_the_token():
     async def scenario():
         async with open_sessions() as sessions:
             async with sessions() as session:
-                await add_token_to_blacklist(token, session)
+                await revoke_token_once(token, session)
                 await session.commit()
             async with sessions() as reader:
                 columns = (
@@ -62,7 +61,7 @@ def test_only_the_revoked_token_is_blacklisted():
     async def scenario():
         async with open_sessions() as sessions:
             async with sessions() as session:
-                await add_token_to_blacklist(revoked, session)
+                await revoke_token_once(revoked, session)
                 await session.commit()
             async with sessions() as reader:
                 return (
@@ -82,7 +81,7 @@ def test_invalid_or_expired_tokens_are_not_stored(unusable):
     async def scenario():
         async with open_sessions() as sessions:
             async with sessions() as session:
-                await add_token_to_blacklist(unusable, session)
+                await revoke_token_once(unusable, session)
                 await session.commit()
                 count = (
                     await session.execute(text("SELECT count(*) FROM token_blacklist"))
@@ -153,15 +152,14 @@ async def stored_jtis(session) -> set[str]:
     return set((await session.execute(text("SELECT jti FROM token_blacklist"))).scalars())
 
 
-@pytest.mark.parametrize("revoke", [add_token_to_blacklist, revoke_token_once])
-def test_revoking_a_token_purges_expired_rows_and_keeps_the_valid_ones(revoke):
+def test_revoking_a_token_purges_expired_rows_and_keeps_the_valid_ones():
     token = create_token(1, "hash")
 
     async def scenario():
         async with open_sessions() as sessions:
             async with sessions() as session:
                 await insert_rows(session, expired=3, valid=2)
-                await revoke(token, session)
+                await revoke_token_once(token, session)
                 await session.commit()
             async with sessions() as reader:
                 return await stored_jtis(reader)
@@ -199,3 +197,37 @@ def test_concurrent_purges_do_not_wait_for_each_other():
             return taken, skipped
 
     assert run(scenario()) == (3, 0)
+
+
+def test_logout_succeeds_while_another_request_is_revoking_the_same_tokens():
+    """Duas revogações simultâneas do mesmo token: a que chega depois não pode virar 500."""
+    from types import SimpleNamespace
+
+    from app.services.user_service import UserService
+
+    access = create_token(1, "hash")
+    refresh = create_token(1, "hash", TokenType.REFRESH)
+
+    async def scenario():
+        async with open_sessions() as sessions:
+            async with sessions() as other, sessions() as mine, sessions() as reader:
+                # A outra requisição já inseriu os dois, sem commit: a nossa espera o commit dela.
+                await revoke_token_once(access, other)
+                await revoke_token_once(refresh, other)
+                logout = asyncio.create_task(
+                    UserService(mine).logout(access, SimpleNamespace(id=1), refresh)
+                )
+                await asyncio.sleep(0.3)
+                assert not logout.done()  # bloqueada pela linha ainda não confirmada
+                await other.commit()
+                result = await asyncio.wait_for(logout, timeout=5)
+                count = (
+                    await reader.execute(text("SELECT count(*) FROM token_blacklist"))
+                ).scalar()
+                return result, count, await is_token_blacklisted(access, reader)
+
+    result, count, blacklisted = run(scenario())
+
+    assert result.message == "Logout realizado com sucesso"
+    assert count == 2  # um por token, sem duplicar
+    assert blacklisted
