@@ -21,7 +21,7 @@ for key, value in _TEST_ENV.items():
     os.environ.setdefault(key, value)
 
 # Testes de integração (tests/integration) usam um Postgres real indicado por
-# TEST_DATABASE_URL, ex.: postgresql://postgres:test@127.0.0.1:55432/test.
+# TEST_DATABASE_URL, ex.: postgresql+asyncpg://postgres:test@127.0.0.1:55432/test.
 # Sem ela, esses testes são pulados e a suíte continua independente de serviços externos.
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 if TEST_DATABASE_URL:

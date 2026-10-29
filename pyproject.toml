@@ -15,7 +15,6 @@ dependencies = [
     "limits[async-redis]>=5,<6",
     "openai>=2.3.0",
     "passlib>=1.7.4",
-    "psycopg2-binary>=2.9.11",
     "pyjwt>=2.15.1",
     "pypdf>=5",
     "python-dotenv>=1.1.1",
