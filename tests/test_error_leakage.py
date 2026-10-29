@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from fastapi import BackgroundTasks
 
-from app.core.email import send_password_reset_email
+from app.services.email_service import send_password_reset_email
 
 
 def test_removed_debug_endpoints_are_not_exposed(client):

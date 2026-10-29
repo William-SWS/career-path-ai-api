@@ -11,13 +11,13 @@ Este documento descreve **como a API funciona hoje** (o frontend vive em [`caree
 │   ├── api/v1/
 │   │   ├── routes/              # rotas finas: validam entrada e chamam um serviço
 │   │   └── dependencies/        # autenticação, rate limit e injeção de serviços
-│   ├── services/                # casos de uso (regras de negócio e transação)
+│   ├── services/                # casos de uso (regras de negócio e transação) e o conteúdo dos e-mails
 │   ├── repository/              # acesso a dados (SQLAlchemy)
 │   ├── models/                  # tabelas (SQLAlchemy 2, tipadas)
 │   ├── schemas/                 # contratos HTTP e o formato das saídas da IA (Pydantic)
 │   ├── llm/                     # cliente do Gemini, prompts versionados, validação da saída
 │   ├── security/                # senhas (bcrypt), tokens JWT e a blacklist de revogações
-│   ├── core/                    # config, banco, exceções, rate limit, e-mail
+│   ├── core/                    # base: config, banco, exceções, rate limit, envio de e-mail (não importa das camadas acima; há teste)
 │   └── utils/                   # PDF e montagem de prompts
 ├── migrations/                  # Alembic
 ├── tests/                       # unitários e de integração

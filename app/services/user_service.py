@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.email import send_password_reset_email
 from app.core.exceptions import (
     AuthenticationException,
     ConflictException,
@@ -39,6 +38,7 @@ from app.security.tokens import (
     read_reset_password_token,
     reset_token_matches_password,
 )
+from app.services.email_service import send_password_reset_email
 
 
 class UserService:
