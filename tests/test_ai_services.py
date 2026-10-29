@@ -19,10 +19,10 @@ from app.schemas.development_trail_schema import (
     DevelopmentTrailRequest,
     DevelopmentTrailUpdateRequest,
 )
-from app.services import interview_guide_services, resume_analysis_services
-from app.services.development_trail_services import DevelopmentTrailService
-from app.services.interview_guide_services import InterviewGuideService
-from app.services.resume_analysis_services import ResumeAnalysisService
+from app.services import interview_guide_service, resume_analysis_service
+from app.services.development_trail_service import DevelopmentTrailService
+from app.services.interview_guide_service import InterviewGuideService
+from app.services.resume_analysis_service import ResumeAnalysisService
 from tests.fakes import FakeLLM, FakeSession, sample_output
 
 USER = SimpleNamespace(id=1)
@@ -187,7 +187,7 @@ def test_interview_guide_with_unusable_ai_result_is_not_saved(monkeypatch):
     service, repo = make_service(
         InterviewGuideService, "interview_guide_repository", llm=FakeLLM("{}")
     )
-    stub_pdf(monkeypatch, interview_guide_services)
+    stub_pdf(monkeypatch, interview_guide_service)
 
     with pytest.raises(ExternalServiceException):
         run(service.generate_interview_guide_service(pdf_upload(), "job", USER))
@@ -198,7 +198,7 @@ def test_interview_guide_with_unusable_ai_result_is_not_saved(monkeypatch):
 def test_interview_guide_is_saved_and_receives_resume_and_job(monkeypatch):
     llm = FakeLLM(json.dumps(sample_output(InterviewGuideOutput)))
     service, repo = make_service(InterviewGuideService, "interview_guide_repository", llm=llm)
-    stub_pdf(monkeypatch, interview_guide_services, text="RESUME-TEXT")
+    stub_pdf(monkeypatch, interview_guide_service, text="RESUME-TEXT")
 
     response = run(service.generate_interview_guide_service(pdf_upload(), "JOB-TEXT", USER))
 
@@ -211,7 +211,7 @@ def test_resume_analysis_with_unusable_ai_result_is_not_saved(monkeypatch):
     service, repo = make_service(
         ResumeAnalysisService, "resume_analysis_repository", llm=FakeLLM("null")
     )
-    stub_pdf(monkeypatch, resume_analysis_services)
+    stub_pdf(monkeypatch, resume_analysis_service)
 
     with pytest.raises(ExternalServiceException):
         run(service.analyze_resume_service(pdf_upload(), USER))
@@ -222,7 +222,7 @@ def test_resume_analysis_with_unusable_ai_result_is_not_saved(monkeypatch):
 def test_resume_analysis_is_saved_and_receives_the_resume_text(monkeypatch):
     llm = FakeLLM(json.dumps(sample_output(ResumeAnalysisOutput)))
     service, repo = make_service(ResumeAnalysisService, "resume_analysis_repository", llm=llm)
-    stub_pdf(monkeypatch, resume_analysis_services, text="RESUME-TEXT")
+    stub_pdf(monkeypatch, resume_analysis_service, text="RESUME-TEXT")
 
     response = run(service.analyze_resume_service(pdf_upload(), USER))
 
@@ -274,8 +274,8 @@ def test_session_is_released_before_calling_the_llm(monkeypatch, cls, attr, sche
     service, _ = make_service(cls, attr)
     llm = ConnectionProbeLLM(service.db, json.dumps(sample_output(schema)))
     service.llm = llm
-    stub_pdf(monkeypatch, interview_guide_services)
-    stub_pdf(monkeypatch, resume_analysis_services)
+    stub_pdf(monkeypatch, interview_guide_service)
+    stub_pdf(monkeypatch, resume_analysis_service)
 
     run(call(service))
 

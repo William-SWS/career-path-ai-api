@@ -47,7 +47,7 @@ cp .env.example .env     # um único arquivo: preencha-o (veja abaixo)
 docker compose up --build
 ```
 
-As migrations rodam sozinhas na inicialização da API. Os campos obrigatórios do `.env` e o que cada um faz estão em [`docs/desenvolvimento.md`](docs/desenvolvimento.md#configuração). O mesmo arquivo serve ao compose, ao container da API e a quem roda a API fora do Docker: dentro do container o compose sobrescreve `POSTGRES_HOST`, `POSTGRES_PORT` e `REDIS_URL`. Preencha `FRONTEND_HOST` com a origem do frontend (`http://localhost:5173`, para o CORS). O `SECRET_KEY` precisa ter **pelo menos 32 caracteres**; para gerar um:
+As migrations rodam sozinhas na inicialização da API. Os campos obrigatórios do `.env` e o que cada um faz estão em [`docs/desenvolvimento.md`](docs/desenvolvimento.md#configuração). O mesmo arquivo serve ao compose, ao container da API e a quem roda a API fora do Docker: dentro do container o compose sobrescreve `POSTGRES_HOST`, `POSTGRES_PORT` e `REDIS_URL`. Preencha `FRONTEND_HOST` com a origem do frontend, **com o `http://`** (`http://localhost:5173`, para o CORS): sem o esquema a API não inicia. O compose publica a API (`8000`) e o Postgres (`5433`) só em `127.0.0.1`, e recusa subir se `POSTGRES_USER`, `POSTGRES_PASSWORD` ou `POSTGRES_DB` estiverem vazios (isso vale também para `docker compose down`). O `SECRET_KEY` precisa ter **pelo menos 32 caracteres**; para gerar um:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"
@@ -83,7 +83,7 @@ Prefixo `/api/v1`. As rotas com 🔒 exigem `Authorization: Bearer <access token
 | Análise de currículo | `POST /resume-analysis/` 🔒 (PDF), `GET /resume-analysis/` 🔒, `GET`/`DELETE /resume-analysis/{id}` 🔒 |
 | Guia de entrevista | `POST /interview-guide/` 🔒 (PDF + vaga), `GET /interview-guide/` 🔒, `GET`/`DELETE /interview-guide/{id}` 🔒 |
 | Trilha de desenvolvimento | `POST /development-trail/` 🔒, `GET /development-trail/` 🔒, `GET`/`PATCH`/`DELETE /development-trail/{id}` 🔒 |
-| Saúde | `GET /check/` |
+| Saúde (sem o prefixo `/api/v1`) | `GET /health` (liveness), `GET /ready` (Postgres e Redis: 503 se o Postgres cair, 200 `degraded` se só o Redis cair) |
 
 Todo erro usa o mesmo formato:
 

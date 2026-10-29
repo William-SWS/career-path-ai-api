@@ -1,23 +1,52 @@
 import hmac
+import uuid
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from typing import NamedTuple
 
 import jwt
 from jwt import InvalidTokenError
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import TokenType, password_fingerprint
-from app.models.token_blacklist import TokenBlacklist
+from app.security.passwords import password_fingerprint
 
 
-def cleanup_expired_tokens(db: Session) -> int:
+class TokenType(str, Enum):
+    """Claim `type`: impede que um tipo de token seja aceito no lugar de outro."""
+
+    ACCESS = "access"
+    REFRESH = "refresh"
+    RESET_PASSWORD = "reset_password"
+
+
+_DEFAULT_DURATIONS = {
+    TokenType.ACCESS: lambda: timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    TokenType.REFRESH: lambda: timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+}
+
+
+def create_token(
+    user_id: int,
+    password_hash: str,
+    token_type: TokenType = TokenType.ACCESS,
+    token_duration: timedelta | None = None,
+) -> str:
     """
-    Remove tokens expirados da blacklist. Quem chama é responsável pelo commit.
+    Emite um access ou refresh token; o de reset de senha tem criador próprio.
+
+    O token carrega a impressão da senha atual (claim `pwd`): ao trocar a senha, todo token
+    emitido antes deixa de valer, sem precisar guardar estado.
     """
-    now = datetime.now(UTC)
-    deleted_count = db.query(TokenBlacklist).filter(TokenBlacklist.expires_at < now).delete()
-    return deleted_count
+    token_duration = token_duration or _DEFAULT_DURATIONS[token_type]()
+    dict_info = {
+        "sub": str(user_id),
+        "type": token_type.value,
+        "pwd": password_fingerprint(password_hash),
+        "jti": uuid.uuid4().hex,  # identifica o token; a blacklist guarda só isto
+        "exp": datetime.now(UTC) + token_duration,
+    }
+    encoded_jwt = jwt.encode(dict_info, settings.SECRET_KEY, settings.ALGORITHM)
+    return encoded_jwt
 
 
 def decode_jwt_token(token: str, expected_type: TokenType) -> dict:

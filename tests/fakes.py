@@ -9,6 +9,11 @@ class FakeSession:
         self.commits = 0
         self.closes = 0
         self.added = []
+        self.executed = []
+
+    async def execute(self, statement):
+        self.executed.append(statement)
+        return type("FakeResult", (), {"rowcount": 0, "first": lambda self: None})()
 
     def add(self, obj):
         self.added.append(obj)

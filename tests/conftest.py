@@ -44,7 +44,7 @@ from app.main import app
 
 @pytest.fixture(scope="session")
 def client() -> TestClient:
-    # Sem `with`: o lifespan (scheduler de limpeza de tokens) não é executado.
+    # Sem `with`: cada requisição roda no seu próprio event loop.
     return TestClient(app)
 
 
@@ -56,3 +56,13 @@ def fresh_rate_limiter():
     get_rate_limiter.cache_clear()
     yield
     get_rate_limiter.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def fresh_readiness_cache():
+    """O /ready guarda o último resultado por alguns segundos; sem isto um teste herdaria o do anterior."""
+    from app.api.v1.routes.health_routes import readiness_cache
+
+    readiness_cache.clear()
+    yield
+    readiness_cache.clear()

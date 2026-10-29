@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.17.0",
-    "apscheduler>=3.11.0",
     "asyncpg>=0.30.0",
     "bcrypt==4.0.1",
     "fastapi>=0.119.0",
@@ -68,11 +67,6 @@ plugins = ["pydantic.mypy"]
 warn_unused_ignores = true
 warn_redundant_casts = true
 check_untyped_defs = true
-
-[[tool.mypy.overrides]]
-# Sem stubs nem py.typed.
-module = ["apscheduler.*"]
-ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # Código novo já nasce com anotação completa; os módulos antigos entram aos poucos.

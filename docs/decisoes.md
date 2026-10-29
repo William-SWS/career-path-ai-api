@@ -145,8 +145,33 @@ Python 3.13 na imagem (igual ao `pyproject`, com `UV_PYTHON_DOWNLOADS=never`), *
 
 **Problema.** A varredura de dependências (`pip-audit`) apontou `python-jose` 3.5.0 (validação incorreta de chaves assimétricas em HMAC) e `ecdsa` 0.19.2 (ataque de temporização), que ele traz. Nenhum dos dois tem versão corrigida publicada, e o `python-jose` está sem manutenção ativa. Não era explorável aqui (chave simétrica e `algorithms` sempre explícito), mas deixava um aviso permanente sem saída.
 
-**Escolha.** Migrar para `PyJWT`. A mudança ficou restrita a `core/security.py`, `utils/token_utils.py` e à dependência de autenticação; o formato dos tokens (claims `sub`, `type`, `pwd`, `jti`, `exp`) não mudou, então tokens já emitidos continuam válidos. `python-jose` e `ecdsa` saíram do `uv.lock`. Alternativa descartada: manter e documentar como risco aceito.
+**Escolha.** Migrar para `PyJWT`. A mudança ficou restrita a `core/security.py`, `utils/token_utils.py` (hoje divididos em `app/security/passwords.py`, `tokens.py` e `blacklist.py`) e à dependência de autenticação; o formato dos tokens (claims `sub`, `type`, `pwd`, `jti`, `exp`) não mudou, então tokens já emitidos continuam válidos. `python-jose` e `ecdsa` saíram do `uv.lock`. Alternativa descartada: manter e documentar como risco aceito.
 
 **Endurecimento.** O decode agora exige `exp` e `sub`: o `python-jose` aceitava um token assinado sem expiração. Os testes cobrem token sem `exp`, token sem assinatura (`alg: none`), assinado com outro algoritmo ou com outra chave.
 
 **Custo.** A troca é de biblioteca, não de protocolo; as exceções passaram de `JWTError` para `InvalidTokenError`. Com `ALGORITHM=HS512`, o PyJWT emite um aviso se `SECRET_KEY` tiver menos de 64 bytes (o mínimo da API é 32 caracteres); é só um aviso.
+
+
+## 18. Limpeza de tokens expirados na própria revogação
+
+**Problema.** A limpeza da blacklist rodava num agendador (APScheduler) dentro da API, a cada 24 h. Com vários workers cada um agendaria a sua, e o job só executava 24 h *depois* de a API subir: uma API reiniciada com mais frequência nunca limpava nada.
+
+**Escolha.** Cada revogação (logout, renovação do refresh, troca de senha) apaga, na mesma transação, até 100 linhas vencidas, com `SELECT ... FOR UPDATE SKIP LOCKED` para que requisições simultâneas peguem lotes diferentes. Migration cria o índice em `expires_at`. O APScheduler, o engine síncrono e o `get_db_sync` saíram. Só a revogação insere linhas, então limpar nela mantém a tabela limitada sem processo extra.
+
+**Alternativas descartadas.** Um comando separado com agendador externo (cron/CronJob): é o padrão de mercado, mas exige mais uma peça de operação; fica como evolução possível. Manter o scheduler com trava no Postgres: menor diff, mas conserva a thread e as dependências só para isso.
+
+**Custo.** Um `DELETE` curto e indexado no caminho do logout, e uma falha nele derruba a revogação. Um acúmulo antigo de linhas vencidas é drenado aos poucos, 100 por revogação. `psycopg2` continua nas dependências porque o Alembic usa o driver síncrono.
+
+
+## 19. `/ready`: resultado em cache e conexão própria
+
+**Problema.** O `/ready` é público e, a cada chamada, abria uma conexão do pool do tráfego, rodava `SELECT 1` e fazia `PING` no Redis. Duas consequências: chamá-lo em loop pressionava o banco; e, com o pool esgotado por carga, ele estourava o timeout e respondia 503 ("Postgres fora") com o Postgres saudável, o que tira a API de rotação justamente sob carga.
+
+**Escolha.** (1) O resultado fica em cache por 3 s e só uma verificação roda por vez: quem chega com o cache vencido espera a verificação em curso. (2) O `SELECT 1` usa um engine próprio (`probe_engine`: `pool_size=1`, `max_overflow=0`, `pre_ping`), fora do pool do tráfego. "Pool ocupado" deixa de ser lido como "banco fora".
+
+**Medido.** Com a stack real: 200 chamadas seguidas ao `/ready` geraram cerca de uma verificação no banco; uma queda do Postgres aparece depois do TTL (503) e some sozinha quando ele volta. Os testes falham sem a trava (30 verificações para 30 chamadas simultâneas) e sem o cache.
+
+**Alternativas descartadas.** Rate limit no `/ready`: faria a sonda depender do Redis que ela mesma checa, e atrás de proxy o IP seria o do proxy. Restrição de rede em código: frágil sem proxy; o certo é o proxy reverso não expor `/ready` ao público.
+
+**Custo.** Uma queda leva até 3 s para aparecer (o orquestrador sonda a cada 10-15 s). O engine próprio mantém uma conexão a mais aberta. O `/ready` continua público no código: só o proxy resolve isso, e hoje não há proxy.
+

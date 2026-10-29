@@ -27,6 +27,7 @@ _STORAGE_COOLDOWN_SECONDS = 10
 
 class RateLimiter:
     def __init__(self, storage: Storage, clock: Callable[[], float] = time.monotonic) -> None:
+        self._storage = storage
         self._strategy = MovingWindowRateLimiter(storage)
         self._clock = clock
         self._unavailable_until = 0.0
@@ -61,6 +62,13 @@ class RateLimiter:
             code="rate_limit_exceeded",
             headers={"Retry-After": str(retry_after)},
         )
+
+    async def is_available(self) -> bool:
+        """Pergunta ao storage se está de pé (PING no Redis), sem passar pelo cooldown."""
+        try:
+            return await self._storage.check()
+        except StorageError:
+            return False
 
     @staticmethod
     def _storage_down(namespace: str, fail_closed: bool) -> None:

@@ -10,7 +10,7 @@ from app.schemas.user_schema import (
     UserUpdateRequest,
     UserUpdateResponse,
 )
-from app.services.user_services import UserService
+from app.services.user_service import UserService
 
 router = APIRouter()
 

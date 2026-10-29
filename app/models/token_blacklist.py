@@ -14,8 +14,11 @@ class TokenBlacklist(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     jti: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
-    # Depois de expires_at o token já seria recusado pela expiração: a linha pode ser apagada.
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # Depois de expires_at o token já seria recusado pela expiração: a linha pode ser apagada
+    # (a revogação apaga um lote de vencidas; o índice evita varrer a tabela para achá-las).
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), index=True, nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

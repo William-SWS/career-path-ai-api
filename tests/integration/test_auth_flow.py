@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
-from app.core.security import TokenType, create_token
+from app.security.tokens import TokenType, create_token
 from tests.fakes import unverified_claims
 from tests.integration.conftest import API, CREDENTIALS, bearer
 
@@ -170,7 +170,7 @@ def reset_token_for(http, email):
         finally:
             await engine.dispose()
 
-    from app.utils.token_utils import create_reset_password_token
+    from app.security.tokens import create_reset_password_token
 
     return create_reset_password_token(email, asyncio.run(stored_hash()))
 

@@ -38,7 +38,7 @@ Todas as variáveis são lidas por `app/core/config.py` (`Settings`). Sem as obr
 | Variável | Para quê |
 |---|---|
 | `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | conexão com o banco (`postgres`/`5432` dentro do Docker; `localhost` fora) |
-| `FRONTEND_HOST` | origem permitida no CORS (ex.: `http://localhost:5173`); também usada nos links de e-mail |
+| `FRONTEND_HOST` | origem permitida no CORS e base dos links de e-mail: **com `http://` ou `https://`, sem caminho** (ex.: `http://localhost:5173`). Sem o esquema a API nem inicia; a barra final é removida |
 | `SECRET_KEY` | assina os JWT; **mínimo de 32 caracteres** |
 | `DEBUG` | `true` ou `false` |
 | `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | conta SMTP usada na recuperação de senha |

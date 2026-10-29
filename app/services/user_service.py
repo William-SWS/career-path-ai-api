@@ -3,21 +3,12 @@ from datetime import UTC, datetime
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.email import send_password_reset_email
 from app.core.exceptions import (
     AuthenticationException,
     ConflictException,
     NotFoundException,
     PermissionDeniedException,
     ValidationException,
-)
-from app.core.security import (
-    TokenType,
-    add_token_to_blacklist,
-    bcrypt_context,
-    create_token,
-    is_token_blacklisted,
-    revoke_token_once,
 )
 from app.models.user import User
 from app.repository.user_repository import UserRepository
@@ -38,11 +29,16 @@ from app.schemas.user_schema import (
     UserUpdateRequest,
     UserUpdateResponse,
 )
-from app.utils.token_utils import (
+from app.security.blacklist import revoke_token_once
+from app.security.passwords import bcrypt_context
+from app.security.tokens import (
+    TokenType,
+    create_token,
     get_token_subject,
     read_reset_password_token,
     reset_token_matches_password,
 )
+from app.services.email_service import send_password_reset_email
 
 
 class UserService:
@@ -149,11 +145,13 @@ class UserService:
                         "O refresh token não pertence ao usuário autenticado",
                         code="refresh_token_mismatch",
                     )
-                revoke_refresh = not await is_token_blacklisted(refresh_token, self.db)
+                revoke_refresh = True
 
-        await add_token_to_blacklist(access_token, self.db)
+        # `revoke_token_once` é atômico: se outra requisição revogar o mesmo token ao mesmo
+        # tempo (ou ele já estiver revogado), vira no-op em vez de violar a chave única.
+        await revoke_token_once(access_token, self.db)
         if refresh_token and revoke_refresh:
-            await add_token_to_blacklist(refresh_token, self.db)
+            await revoke_token_once(refresh_token, self.db)
         await self.db.commit()
 
         return MessageResponse(message="Logout realizado com sucesso")

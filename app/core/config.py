@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from fastapi_mail import ConnectionConfig
 from limits import parse as parse_limit
@@ -38,6 +39,28 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     DEBUG: bool
+
+    @field_validator("FRONTEND_HOST")
+    @classmethod
+    def frontend_host_must_be_an_origin(cls, value: str) -> str:
+        # O navegador compara a origem inteira (esquema, host e porta): "localhost:5173" sem
+        # "http://" nunca bate, e o CORS passaria a recusar tudo sem nenhum erro óbvio.
+        parts = urlsplit(value)
+        if (
+            parts.scheme not in ("http", "https")
+            or not parts.netloc
+            or parts.path not in ("", "/")
+            or parts.query
+            or parts.fragment
+            or value != value.strip()
+        ):
+            raise ValueError(
+                "FRONTEND_HOST deve ser a origem do frontend, com esquema e sem caminho, "
+                "por exemplo http://localhost:5173"
+            )
+        # Sem a barra final: o CORS compara a origem exata e os links do e-mail
+        # acrescentam o caminho ("{FRONTEND_HOST}/reset").
+        return value.rstrip("/")
 
     @field_validator("SECRET_KEY")
     @classmethod

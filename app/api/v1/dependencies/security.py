@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies.database import get_db
 from app.core.config import settings
-from app.core.security import TokenType, is_token_blacklisted, password_fingerprint
 from app.models.user import User
 from app.repository.user_repository import UserRepository
-from app.utils.token_utils import decode_jwt_token
+from app.security.blacklist import is_token_blacklisted
+from app.security.passwords import password_fingerprint
+from app.security.tokens import TokenType, decode_jwt_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login-form")
 

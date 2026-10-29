@@ -5,7 +5,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     ports:
-      - "8000:8000"
+      # Só a própria máquina alcança a porta publicada (sem 127.0.0.1 ela abriria na rede local).
+      - "127.0.0.1:8000:8000"
     # Toda a configuração vem de um único .env (veja .env.example).
     env_file:
       - .env
@@ -21,18 +22,28 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # Liveness: só o processo (sem dependências, para não reiniciar a API por culpa do banco).
+    # A prontidão com Postgres e Redis fica em /ready.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:17
     container_name: career-path-postgres
     # Só estas três variáveis chegam ao container do banco (nenhum outro segredo do .env).
+    # `:?` interrompe o compose com uma mensagem clara quando o .env está vazio, em vez de o
+    # Postgres recusar subir e a API ficar esperando por ele.
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
     restart: "always"
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -66,7 +77,7 @@ services:
         # O navegador (no host) fala com a API pela porta publicada acima.
         VITE_API_URL: http://localhost:8000
     ports:
-      - "5173:8080"
+      - "127.0.0.1:5173:8080"
     depends_on:
       - api
     restart: unless-stopped

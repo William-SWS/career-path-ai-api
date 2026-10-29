@@ -10,7 +10,7 @@ Não há evidência suficiente para afirmar isso. Falta, no mínimo:
 - observabilidade além de logs (métricas, tracing, alertas);
 - política de backup e restauração do PostgreSQL;
 - processo de rotação de segredos (`SECRET_KEY`, chave do Gemini, senha SMTP);
-- um `healthcheck` que verifique as dependências: hoje `GET /check/` só diz que o processo responde e não consulta o banco, o Redis nem o Gemini.
+- monitoramento que use os endpoints de saúde: `GET /health` (liveness) e `GET /ready` (Postgres e Redis; o Gemini não é consultado, para não gastar cota nem depender de terceiros) existem, mas nada os consome além do `healthcheck` da API no compose, que chama só `/health`. O `/ready` é **público** no código (o corpo só diz `ok`/`down`, sem detalhes de erro) e guarda o resultado por 3 s, o que limita o custo de quem o chamar em loop; em produção o proxy reverso deveria bloqueá-lo para fora, e não há proxy hoje. Os testes automatizados usam dependências simuladas; o comportamento real (tudo de pé, Redis fora → 200 `degraded`, Postgres fora → 503) foi conferido uma vez, à mão, subindo o compose e parando os containers. O CI não repete essa checagem.
 
 ## Qualidade da IA
 
@@ -36,8 +36,7 @@ Conhecido e **não** resolvido:
 
 ## Arquitetura e código
 
-- Convenções de nome ainda inconsistentes em partes antigas (`*_services` vs `*_service`), e duas áreas de token/segurança (`core/security` e `utils/token_utils`) que mereciam ser unificadas.
-- A limpeza agendada de tokens roda **dentro do processo da API** (APScheduler, uma vez por dia). Com vários workers, cada um agenda a sua; é idempotente, mas redundante.
+- A limpeza de revogações vencidas acontece **dentro do logout e da troca de senha** (um `DELETE` de até 100 linhas). Se esse `DELETE` falhar, a revogação falha junto. Testado contra Postgres real, incluindo duas limpezas simultâneas; não medi o custo sob carga.
 - O `mypy` está em modo moderado fora dos módulos novos; o projeto não passa em `--strict`.
 - Os testes de integração cobrem autenticação, transação, liberação de conexão, rate limit e divergência de schema. **Não** cobrem todos os endpoints de ponta a ponta.
 

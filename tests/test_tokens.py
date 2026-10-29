@@ -1,8 +1,7 @@
 import pytest
 from jwt import InvalidTokenError
 
-from app.core.security import TokenType, create_token
-from app.utils.token_utils import decode_jwt_token
+from app.security.tokens import TokenType, create_token, decode_jwt_token
 
 
 def test_decode_returns_payload_for_valid_token():
