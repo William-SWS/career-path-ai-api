@@ -11,14 +11,6 @@ from app.core.exceptions import (
     PermissionDeniedException,
     ValidationException,
 )
-from app.core.security import (
-    TokenType,
-    add_token_to_blacklist,
-    bcrypt_context,
-    create_token,
-    is_token_blacklisted,
-    revoke_token_once,
-)
 from app.models.user import User
 from app.repository.user_repository import UserRepository
 from app.schemas.auth_schema import (
@@ -38,7 +30,11 @@ from app.schemas.user_schema import (
     UserUpdateRequest,
     UserUpdateResponse,
 )
-from app.utils.token_utils import (
+from app.security.blacklist import add_token_to_blacklist, is_token_blacklisted, revoke_token_once
+from app.security.passwords import bcrypt_context
+from app.security.tokens import (
+    TokenType,
+    create_token,
     get_token_subject,
     read_reset_password_token,
     reset_token_matches_password,

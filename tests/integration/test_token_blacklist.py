@@ -6,13 +6,8 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import text
 
-from app.core.security import (
-    TokenType,
-    add_token_to_blacklist,
-    create_token,
-    is_token_blacklisted,
-    revoke_token_once,
-)
+from app.security.blacklist import add_token_to_blacklist, is_token_blacklisted, revoke_token_once
+from app.security.tokens import TokenType, create_token
 from tests.fakes import unverified_claims
 from tests.integration.conftest import open_sessions
 

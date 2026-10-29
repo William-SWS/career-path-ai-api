@@ -7,8 +7,13 @@ import pytest
 from jwt import InvalidTokenError
 
 from app.core.config import settings
-from app.core.security import TokenType, create_token, password_fingerprint
-from app.utils.token_utils import create_reset_password_token, decode_jwt_token
+from app.security.passwords import password_fingerprint
+from app.security.tokens import (
+    TokenType,
+    create_reset_password_token,
+    create_token,
+    decode_jwt_token,
+)
 from tests.fakes import unverified_claims
 
 API = "/api/v1"

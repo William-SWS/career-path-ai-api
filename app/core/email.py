@@ -3,7 +3,7 @@ from fastapi_mail import FastMail, MessageSchema, MessageType
 
 from app.core.config import conf, settings
 from app.models.user import User
-from app.utils.token_utils import create_reset_password_token
+from app.security.tokens import create_reset_password_token
 
 
 async def send_email(

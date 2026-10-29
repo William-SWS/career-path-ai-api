@@ -5,14 +5,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.core.security import bcrypt_context, create_token, is_token_blacklisted
 from app.repository.development_trail_repository import DevelopmentTrailRepository
 from app.repository.user_repository import UserRepository
 from app.schemas.auth_schema import RegisterRequest, ResetPasswordRequest
 from app.schemas.development_trail_schema import DevelopmentTrailUpdateRequest
+from app.security.blacklist import is_token_blacklisted
+from app.security.passwords import bcrypt_context
+from app.security.tokens import create_reset_password_token, create_token
 from app.services.development_trail_service import DevelopmentTrailService
 from app.services.user_service import UserService
-from app.utils.token_utils import create_reset_password_token
 from tests.fakes import FakeLLM
 from tests.integration.conftest import open_sessions
 

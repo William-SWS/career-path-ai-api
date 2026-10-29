@@ -2,7 +2,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core.database import get_db_sync
 from app.core.logging_config import logger
-from app.utils.token_utils import cleanup_expired_tokens
+from app.security.blacklist import cleanup_expired_tokens
 
 scheduler = BackgroundScheduler()
 

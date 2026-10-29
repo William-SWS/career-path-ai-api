@@ -14,7 +14,6 @@ from app.core.exceptions import (
     PermissionDeniedException,
     ValidationException,
 )
-from app.core.security import TokenType, bcrypt_context, create_token
 from app.schemas.auth_schema import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -22,9 +21,10 @@ from app.schemas.auth_schema import (
     ResetPasswordRequest,
 )
 from app.schemas.user_schema import UserDeleteRequest, UserUpdateRequest
+from app.security.passwords import bcrypt_context
+from app.security.tokens import TokenType, create_reset_password_token, create_token
 from app.services import user_service
 from app.services.user_service import UserService
-from app.utils.token_utils import create_reset_password_token
 from tests.fakes import FakeSession, unverified_claims
 
 PASSWORD = "Abcdef12"

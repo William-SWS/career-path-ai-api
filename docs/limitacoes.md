@@ -36,7 +36,6 @@ Conhecido e **não** resolvido:
 
 ## Arquitetura e código
 
-- Duas áreas de token/segurança (`core/security` e `utils/token_utils`) que mereciam ser unificadas.
 - A limpeza agendada de tokens roda **dentro do processo da API** (APScheduler, uma vez por dia). Com vários workers, cada um agenda a sua; é idempotente, mas redundante.
 - O `mypy` está em modo moderado fora dos módulos novos; o projeto não passa em `--strict`.
 - Os testes de integração cobrem autenticação, transação, liberação de conexão, rate limit e divergência de schema. **Não** cobrem todos os endpoints de ponta a ponta.

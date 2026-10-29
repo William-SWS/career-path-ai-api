@@ -1,65 +1,14 @@
-import hashlib
-import hmac
-import uuid
-from datetime import UTC, datetime, timedelta
-from enum import Enum
+from datetime import UTC, datetime
 
 import jwt
 from jwt import InvalidTokenError
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.token_blacklist import TokenBlacklist
-
-bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-class TokenType(str, Enum):
-    """Claim `type`: impede que um tipo de token seja aceito no lugar de outro."""
-
-    ACCESS = "access"
-    REFRESH = "refresh"
-    RESET_PASSWORD = "reset_password"
-
-
-_DEFAULT_DURATIONS = {
-    TokenType.ACCESS: lambda: timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    TokenType.REFRESH: lambda: timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-}
-
-
-def password_fingerprint(password_hash: str) -> str:
-    """HMAC do hash da senha: muda quando a senha muda e não revela o hash."""
-    return hmac.new(
-        settings.SECRET_KEY.encode(), password_hash.encode(), hashlib.sha256
-    ).hexdigest()[:32]
-
-
-def create_token(
-    user_id: int,
-    password_hash: str,
-    token_type: TokenType = TokenType.ACCESS,
-    token_duration: timedelta | None = None,
-) -> str:
-    """
-    Emite um access ou refresh token; o de reset de senha tem criador próprio.
-
-    O token carrega a impressão da senha atual (claim `pwd`): ao trocar a senha, todo token
-    emitido antes deixa de valer, sem precisar guardar estado.
-    """
-    token_duration = token_duration or _DEFAULT_DURATIONS[token_type]()
-    dict_info = {
-        "sub": str(user_id),
-        "type": token_type.value,
-        "pwd": password_fingerprint(password_hash),
-        "jti": uuid.uuid4().hex,  # identifica o token; a blacklist guarda só isto
-        "exp": datetime.now(UTC) + token_duration,
-    }
-    encoded_jwt = jwt.encode(dict_info, settings.SECRET_KEY, settings.ALGORITHM)
-    return encoded_jwt
 
 
 def _revocation_claims(token: str) -> tuple[str, datetime] | None:
@@ -115,3 +64,12 @@ async def revoke_token_once(token: str, db: AsyncSession) -> datetime | None:
         .returning(TokenBlacklist.id)
     )
     return expires_at if result.first() is not None else None
+
+
+def cleanup_expired_tokens(db: Session) -> int:
+    """
+    Remove tokens expirados da blacklist. Quem chama é responsável pelo commit.
+    """
+    now = datetime.now(UTC)
+    deleted_count = db.query(TokenBlacklist).filter(TokenBlacklist.expires_at < now).delete()
+    return deleted_count
