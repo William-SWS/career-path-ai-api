@@ -25,7 +25,7 @@ from app.schemas.auth_schema import (
     ResetPasswordRequest,
     TokenResponse,
 )
-from app.services.user_services import UserService
+from app.services.user_service import UserService
 
 router = APIRouter()
 

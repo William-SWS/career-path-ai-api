@@ -9,7 +9,7 @@ from app.schemas.resume_analysis_schema import (
     ResumeAnalysisListResponse,
     ResumeAnalysisResponse,
 )
-from app.services.resume_analysis_services import ResumeAnalysisService
+from app.services.resume_analysis_service import ResumeAnalysisService
 
 router = APIRouter()
 

@@ -22,8 +22,8 @@ from app.schemas.auth_schema import (
     ResetPasswordRequest,
 )
 from app.schemas.user_schema import UserDeleteRequest, UserUpdateRequest
-from app.services import user_services
-from app.services.user_services import UserService
+from app.services import user_service
+from app.services.user_service import UserService
 from app.utils.token_utils import create_reset_password_token
 from tests.fakes import FakeSession, unverified_claims
 
@@ -302,7 +302,7 @@ def stub_blacklist(monkeypatch, already_revoked=()):
     async def is_blacklisted(token, db):
         return token in already_revoked
 
-    monkeypatch.setattr(user_services, "is_token_blacklisted", is_blacklisted)
+    monkeypatch.setattr(user_service, "is_token_blacklisted", is_blacklisted)
 
 
 def revoked(service):
@@ -392,7 +392,7 @@ def stub_revoke_once(monkeypatch, result):
         calls.append(token)
         return result
 
-    monkeypatch.setattr(user_services, "revoke_token_once", revoke_once)
+    monkeypatch.setattr(user_service, "revoke_token_once", revoke_once)
     return calls
 
 
@@ -537,7 +537,7 @@ def test_forgot_password_only_sends_an_email_to_existing_accounts():
 
 def test_login_spends_hashing_time_even_when_the_account_does_not_exist(monkeypatch):
     calls = []
-    monkeypatch.setattr(user_services.bcrypt_context, "dummy_verify", lambda: calls.append("dummy"))
+    monkeypatch.setattr(user_service.bcrypt_context, "dummy_verify", lambda: calls.append("dummy"))
     service = make_service(make_user())
 
     with pytest.raises(AuthenticationException):
@@ -548,7 +548,7 @@ def test_login_spends_hashing_time_even_when_the_account_does_not_exist(monkeypa
 
 def test_login_with_a_real_account_does_not_need_the_dummy_hash(monkeypatch):
     calls = []
-    monkeypatch.setattr(user_services.bcrypt_context, "dummy_verify", lambda: calls.append("dummy"))
+    monkeypatch.setattr(user_service.bcrypt_context, "dummy_verify", lambda: calls.append("dummy"))
     service = make_service(make_user())
 
     with pytest.raises(AuthenticationException):

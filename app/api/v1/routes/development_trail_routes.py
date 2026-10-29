@@ -11,7 +11,7 @@ from app.schemas.development_trail_schema import (
     DevelopmentTrailResponse,
     DevelopmentTrailUpdateRequest,
 )
-from app.services.development_trail_services import DevelopmentTrailService
+from app.services.development_trail_service import DevelopmentTrailService
 
 router = APIRouter()
 

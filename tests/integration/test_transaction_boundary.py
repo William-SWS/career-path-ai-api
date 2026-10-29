@@ -10,8 +10,8 @@ from app.repository.development_trail_repository import DevelopmentTrailReposito
 from app.repository.user_repository import UserRepository
 from app.schemas.auth_schema import RegisterRequest, ResetPasswordRequest
 from app.schemas.development_trail_schema import DevelopmentTrailUpdateRequest
-from app.services.development_trail_services import DevelopmentTrailService
-from app.services.user_services import UserService
+from app.services.development_trail_service import DevelopmentTrailService
+from app.services.user_service import UserService
 from app.utils.token_utils import create_reset_password_token
 from tests.fakes import FakeLLM
 from tests.integration.conftest import open_sessions

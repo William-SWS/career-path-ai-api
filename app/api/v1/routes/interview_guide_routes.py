@@ -9,7 +9,7 @@ from app.schemas.interview_guide_schema import (
     InterviewGuideListResponse,
     InterviewGuideResponse,
 )
-from app.services.interview_guide_services import InterviewGuideService
+from app.services.interview_guide_service import InterviewGuideService
 
 router = APIRouter()
 

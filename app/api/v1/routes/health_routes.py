@@ -1,4 +1,4 @@
-# app/routes/check_routes.py
+# app/routes/health_routes.py
 from fastapi import APIRouter
 
 from app.core.config import settings
