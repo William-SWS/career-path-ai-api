@@ -60,4 +60,4 @@ Todas as medições deste projeto são de **uma máquina, poucas amostras e, qua
 | Diferença de tempo no login (e-mail existente vs não) | ≈219 ms de diferença → 222 ms contra 221 ms | medição local, poucas repetições |
 | Requisição com o Redis parado | ~3 s em toda requisição → 0,22 s após a 1ª | stack local no Docker |
 | Erros do `mypy` | 105 → 0 | configuração atual |
-| Testes | 314 (268 sem banco + 46 de integração/Redis) | só passam as 46 com PostgreSQL e Redis disponíveis |
+| Testes | 370 (315 sem banco + 55 de integração/Redis) | só passam as 55 com PostgreSQL e Redis disponíveis |

@@ -95,7 +95,7 @@ Os limites de requisição (HTTP 429, com `Retry-After`) estão na [arquitetura]
 
 ## Qualidade
 
-- **Testes:** 314 testes em `tests` (unitários, com repositórios e LLM falsos; e de integração, contra PostgreSQL e Redis reais, que só rodam quando `TEST_DATABASE_URL` e `REDIS_TEST_URL` estão definidos). Os testes nunca chamam o Gemini.
+- **Testes:** 370 testes em `tests` (unitários, com repositórios e LLM falsos; e de integração, contra PostgreSQL e Redis reais, que só rodam quando `TEST_DATABASE_URL` e `REDIS_TEST_URL` estão definidos). Os testes nunca chamam o Gemini.
 - **CI** (GitHub Actions): `ruff check`, `ruff format --check`, `mypy`, a suíte completa com PostgreSQL 17 e Redis como serviços, e o build da imagem Docker.
 - **Avaliação da IA:** há um conjunto de avaliação sintético e manual em [`evals`](evals/README.md), separado dos testes porque usa a rede e gasta cota.
 
