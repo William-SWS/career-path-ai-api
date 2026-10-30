@@ -37,6 +37,7 @@ Conhecido e **não** resolvido:
 ## Arquitetura e código
 
 - A limpeza de revogações vencidas acontece **dentro do logout e da troca de senha** (um `DELETE` de até 100 linhas). Se esse `DELETE` falhar, a revogação falha junto. Testado contra Postgres real, incluindo duas limpezas simultâneas; não medi o custo sob carga.
+- **O e-mail de reset é enviado em segundo plano, sem fila.** Depois da resposta, o envio tenta até 3 vezes (esperas de 1 s e 3 s) e registra a falha final no log. Se o processo reiniciar durante as tentativas, o e-mail se perde e ninguém é avisado; a pessoa pede de novo (limite de 3 por hora). Testado só com um servidor SMTP falso, nunca contra um SMTP real.
 - O `mypy` está em modo moderado fora dos módulos novos; o projeto não passa em `--strict`.
 - Os testes de integração cobrem autenticação, transação, liberação de conexão, rate limit e divergência de schema. **Não** cobrem todos os endpoints de ponta a ponta.
 
