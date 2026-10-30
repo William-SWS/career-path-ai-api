@@ -214,7 +214,7 @@ class UserService:
         """
         user = await self.user_repository.get_by_email(request_data.email)
         if user:
-            await send_password_reset_email(user, background_tasks)
+            send_password_reset_email(user, background_tasks)
 
         return MessageResponse(message="Se o email existir, enviaremos instruções de reset")
 

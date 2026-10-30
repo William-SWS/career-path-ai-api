@@ -6,7 +6,7 @@ from app.models.user import User
 from app.security.tokens import create_reset_password_token
 
 
-async def send_password_reset_email(user: User, background_tasks: BackgroundTasks):
+def send_password_reset_email(user: User, background_tasks: BackgroundTasks):
     token = create_reset_password_token(user.email, user.password_hash)
 
     reset_url = f"{settings.FRONTEND_HOST}/reset?token={token}"
@@ -19,7 +19,7 @@ async def send_password_reset_email(user: User, background_tasks: BackgroundTask
 
     subject = f"Reset Password - {settings.APP_NAME}"
 
-    await send_email(
+    send_email(
         recipients=[user.email],
         subject=subject,
         template_name="password_reset.html",
