@@ -1,14 +1,13 @@
 from datetime import UTC, datetime
 from typing import cast
 
-import jwt
 from jwt import InvalidTokenError
 from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.models.token_blacklist import TokenBlacklist
+from app.security.tokens import decode_jwt_payload
 
 # Linhas vencidas apagadas por revogação. A tabela só cresce quando há revogação, então limpar
 # nela mantém o tamanho limitado sem agendador; um lote pequeno limita o custo do logout.
@@ -34,7 +33,7 @@ async def purge_expired_tokens(db: AsyncSession, limit: int = _PURGE_BATCH_SIZE)
 def _revocation_claims(token: str) -> tuple[str, datetime] | None:
     """(jti, expiração) de um token válido; None se ele for inválido, expirado ou sem `jti`."""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = decode_jwt_payload(token)
         return str(payload["jti"]), datetime.fromtimestamp(payload["exp"], tz=UTC)
     except (InvalidTokenError, KeyError):
         return None

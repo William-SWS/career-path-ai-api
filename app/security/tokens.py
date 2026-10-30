@@ -49,14 +49,24 @@ def create_token(
     return encoded_jwt
 
 
-def decode_jwt_token(token: str, expected_type: TokenType) -> dict:
-    """Levanta InvalidTokenError se o token for inválido, estiver expirado ou for de outro tipo."""
-    payload = jwt.decode(
+def decode_jwt_payload(token: str) -> dict:
+    """Valida assinatura, algoritmo e expiração, sem olhar o tipo. Única configuração de decode.
+
+    Quem precisa do tipo usa `decode_jwt_token`; a blacklist usa este direto, porque só quer o
+    `jti` e a expiração e todo chamador já validou o tipo antes.
+    Levanta InvalidTokenError se o token for inválido ou estiver expirado.
+    """
+    return jwt.decode(
         token,
         settings.SECRET_KEY,
         algorithms=[settings.ALGORITHM],
         options={"require": ["exp", "sub"]},  # token sem expiração nunca é aceito
     )
+
+
+def decode_jwt_token(token: str, expected_type: TokenType) -> dict:
+    """Levanta InvalidTokenError se o token for inválido, estiver expirado ou for de outro tipo."""
+    payload = decode_jwt_payload(token)
 
     if payload.get("type") != expected_type.value:
         raise InvalidTokenError(f"Esperado token do tipo {expected_type.value}")
